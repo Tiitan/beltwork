@@ -1,0 +1,157 @@
+{
+  "version": "v1-draft-2026-02-13",
+  "recipes": [
+    {
+      "id": "refine_metal_plates",
+      "name": "Metal Plating",
+      "icon": "rcp_refine_metal_plates",
+      "building_id": "refinery",
+      "mode": "continuous",
+      "description": "Press and treat bulk metals into construction plates.",
+      "inputs": [
+        { "resource_id": "metals", "amount": 10 }
+      ],
+      "outputs": [
+        { "resource_id": "metal_plates", "amount": 6 }
+      ],
+      "base_duration_sec": 60,
+      "base_power_kw": 16,
+      "base_heat_hps": 1.6,
+      "unlock_prereqs": {
+        "building_level_min": 1
+      }
+    },
+    {
+      "id": "refine_wire_spools",
+      "name": "Wire Extrusion",
+      "icon": "rcp_refine_wire_spools",
+      "building_id": "refinery",
+      "mode": "continuous",
+      "description": "Smelt and draw conductor stock into usable wire.",
+      "inputs": [
+        { "resource_id": "conductors", "amount": 8 }
+      ],
+      "outputs": [
+        { "resource_id": "wire_spools", "amount": 6 }
+      ],
+      "base_duration_sec": 55,
+      "base_power_kw": 14,
+      "base_heat_hps": 1.4,
+      "unlock_prereqs": {
+        "building_level_min": 1
+      }
+    },
+    {
+      "id": "refine_polymer_parts",
+      "name": "Polymer Forming",
+      "icon": "rcp_refine_polymer_parts",
+      "building_id": "refinery",
+      "mode": "continuous",
+      "description": "Stabilize carbon feedstock into durable parts.",
+      "inputs": [
+        { "resource_id": "carbon_materials", "amount": 10 }
+      ],
+      "outputs": [
+        { "resource_id": "polymer_parts", "amount": 7 }
+      ],
+      "base_duration_sec": 62,
+      "base_power_kw": 15,
+      "base_heat_hps": 1.3,
+      "unlock_prereqs": {
+        "building_level_min": 1
+      }
+    },
+    {
+      "id": "refine_coolant_cells",
+      "name": "Coolant Cell Filling",
+      "icon": "rcp_refine_coolant_cells",
+      "building_id": "refinery",
+      "mode": "batch",
+      "description": "Package water and alloys into thermal buffer cells.",
+      "inputs": [
+        { "resource_id": "water", "amount": 14 },
+        { "resource_id": "metals", "amount": 4 }
+      ],
+      "outputs": [
+        { "resource_id": "coolant_cells", "amount": 6 }
+      ],
+      "base_duration_sec": 90,
+      "base_power_kw": 18,
+      "base_heat_hps": 1.9,
+      "unlock_prereqs": {
+        "building_level_min": 2
+      }
+    },
+    {
+      "id": "assemble_rig_kits",
+      "name": "Rig Kit Assembly",
+      "icon": "rcp_assemble_rig_kits",
+      "building_id": "assembler",
+      "mode": "batch",
+      "description": "Assemble modular kits for mining rig deployment.",
+      "inputs": [
+        { "resource_id": "metal_plates", "amount": 8 },
+        { "resource_id": "wire_spools", "amount": 6 },
+        { "resource_id": "polymer_parts", "amount": 4 }
+      ],
+      "outputs": [
+        { "resource_id": "rig_kits", "amount": 2 }
+      ],
+      "base_duration_sec": 150,
+      "base_power_kw": 24,
+      "base_heat_hps": 2.1,
+      "unlock_prereqs": {
+        "building_level_min": 1
+      }
+    },
+    {
+      "id": "assemble_station_parts",
+      "name": "Station Part Assembly",
+      "icon": "rcp_assemble_station_parts",
+      "building_id": "assembler",
+      "mode": "batch",
+      "description": "Produce multi-system station modules for upgrades.",
+      "inputs": [
+        { "resource_id": "metal_plates", "amount": 10 },
+        { "resource_id": "wire_spools", "amount": 6 },
+        { "resource_id": "coolant_cells", "amount": 4 }
+      ],
+      "outputs": [
+        { "resource_id": "station_parts", "amount": 2 }
+      ],
+      "base_duration_sec": 180,
+      "base_power_kw": 28,
+      "base_heat_hps": 2.4,
+      "unlock_prereqs": {
+        "building_level_min": 2
+      }
+    },
+    {
+      "id": "assemble_emergency_coolant_pack",
+      "name": "Emergency Coolant Pack",
+      "icon": "rcp_assemble_emergency_coolant_pack",
+      "building_id": "assembler",
+      "mode": "continuous",
+      "description": "Recycle parts into coolant packs to reduce overheating downtime.",
+      "inputs": [
+        { "resource_id": "polymer_parts", "amount": 6 },
+        { "resource_id": "water", "amount": 10 }
+      ],
+      "outputs": [
+        { "resource_id": "coolant_cells", "amount": 5 }
+      ],
+      "base_duration_sec": 95,
+      "base_power_kw": 20,
+      "base_heat_hps": 1.8,
+      "unlock_prereqs": {
+        "building_level_min": 1
+      }
+    }
+  ],
+  "global_rules": {
+    "continuous_recipe_behavior": "repeat_while_inputs_and_capacity_available",
+    "batch_recipe_behavior": "produce_one_batch_then_idle_until_requeued",
+    "speed_scaling_stat": "production_speed_multiplier",
+    "duration_formula": "effective_duration = base_duration_sec / production_speed_multiplier"
+  }
+}

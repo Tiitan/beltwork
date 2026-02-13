@@ -1,0 +1,22 @@
+{
+  "version": "v1-draft-2026-02-13",
+  "coordinate_system": "cartesian_2d",
+  "world_bounds": {
+    "min_x": 0,
+    "max_x": 10000,
+    "min_y": 0,
+    "max_y": 10000
+  },
+  "spawn_constraints": {
+    "min_station_to_asteroid_distance": 250,
+    "min_asteroid_separation": 120
+  },
+  "station_spawn_rules": {
+    "mode": "random",
+    "avoid_overlap_radius": 120
+  },
+  "asteroid_spawn_rules": {
+    "template_selection": "weighted_random",
+    "spawn_once": true
+  }
+}

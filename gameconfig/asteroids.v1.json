@@ -1,0 +1,91 @@
+{
+  "version": "v1-draft-2026-02-13",
+  "mining_rules": {
+    "base_cycle_sec": 120,
+    "base_yield_per_cycle": 12,
+    "distance_time_penalty_formula": "travel_multiplier = 1 + ((max(distance_units, 25) / 1000) * 0.6)",
+    "distance_metric": "runtime_position_distance_units",
+    "distance_formula": "distance_units = sqrt((asteroid_x - station_x)^2 + (asteroid_y - station_y)^2)",
+    "dock_rate_formula": "yield = base_yield_per_cycle * mining_rate_multiplier * asteroid_yield_multiplier",
+    "rig_slot_stat": "max_active_rigs"
+  },
+  "asteroid_templates": [
+    {
+      "id": "common_chondrite",
+      "name": "Common Chondrite",
+      "icon": "ast_common_chondrite",
+      "spawn_weight": 40,
+      "yield_multiplier": 1.0,
+      "depletion_units": 1800,
+      "composition": {
+        "metals": 0.55,
+        "carbon_materials": 0.25,
+        "water": 0.15,
+        "conductors": 0.05
+      }
+    },
+    {
+      "id": "carbonaceous",
+      "name": "Carbonaceous Body",
+      "icon": "ast_carbonaceous",
+      "spawn_weight": 25,
+      "yield_multiplier": 0.95,
+      "depletion_units": 1600,
+      "composition": {
+        "carbon_materials": 0.55,
+        "water": 0.3,
+        "metals": 0.1,
+        "conductors": 0.05
+      }
+    },
+    {
+      "id": "metal_rich",
+      "name": "Metal-Rich Fragment",
+      "icon": "ast_metal_rich",
+      "spawn_weight": 20,
+      "yield_multiplier": 1.15,
+      "depletion_units": 2100,
+      "composition": {
+        "metals": 0.7,
+        "conductors": 0.15,
+        "carbon_materials": 0.1,
+        "water": 0.05
+      }
+    },
+    {
+      "id": "conductor_veined",
+      "name": "Conductor-Veined Rock",
+      "icon": "ast_conductor_veined",
+      "spawn_weight": 10,
+      "yield_multiplier": 1.05,
+      "depletion_units": 1700,
+      "composition": {
+        "conductors": 0.45,
+        "metals": 0.35,
+        "carbon_materials": 0.1,
+        "water": 0.1
+      }
+    },
+    {
+      "id": "icy_rare",
+      "name": "Icy Rare Body",
+      "icon": "ast_icy_rare",
+      "spawn_weight": 5,
+      "yield_multiplier": 1.3,
+      "depletion_units": 2400,
+      "composition": {
+        "water": 0.65,
+        "conductors": 0.15,
+        "metals": 0.1,
+        "carbon_materials": 0.1
+      }
+    }
+  ],
+  "scanner_integration": {
+    "asteroid_list_size_semantics": "max number of asteroid instances returned by discovery query",
+    "rare_asteroid_chance_semantics": "query-time bonus weighting for rare templates in discovery results",
+    "spawn_time_effect": "none_when_spawn_once",
+    "rare_profile_ids": ["conductor_veined", "icy_rare"],
+    "rare_chance_stat": "rare_asteroid_chance"
+  }
+}

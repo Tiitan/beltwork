@@ -1,0 +1,353 @@
+{
+  "version": "v1-draft-2026-02-13",
+  "defaults": {
+    "max_level": 10,
+    "upgrade_cost_multiplier_per_level": 1.6,
+    "upgrade_time_multiplier_per_level": 1.45
+  },
+  "buildings": [
+    {
+      "id": "fusion_reactor",
+      "name": "Fusion Reactor",
+      "icon": "bld_fusion_reactor",
+      "description": "Primary station power source. Consumes water for stable output.",
+      "v1_enabled": true,
+      "max_level": 10,
+      "unlock_prereqs": {
+        "station_level_min": 1,
+        "buildings_required": []
+      },
+      "base_build_cost": {
+        "metals": 80,
+        "conductors": 30,
+        "carbon_materials": 20
+      },
+      "base_build_time_sec": 180,
+      "upgrade_curve": {
+        "cost_multiplier_per_level": 1.6,
+        "time_multiplier_per_level": 1.45
+      },
+      "power_rules": {
+        "idle_kw": 0,
+        "active_kw": -120,
+        "active_kw_scale_per_level": 1.28
+      },
+      "heat_rules": {
+        "idle_hps": 0.8,
+        "active_hps": 2.2,
+        "active_hps_scale_per_level": 1.12
+      },
+      "operational_rules": {
+        "consumes_per_sec": {
+          "water": 0.05
+        }
+      },
+      "level_scaling": [
+        {
+          "stat": "power_generation_kw",
+          "base": 120,
+          "per_level_multiplier": 1.28
+        }
+      ]
+    },
+    {
+      "id": "storage",
+      "name": "Storage",
+      "icon": "bld_storage",
+      "description": "Increases station inventory capacity.",
+      "v1_enabled": true,
+      "max_level": 12,
+      "unlock_prereqs": {
+        "station_level_min": 1,
+        "buildings_required": []
+      },
+      "base_build_cost": {
+        "metals": 50,
+        "carbon_materials": 25
+      },
+      "base_build_time_sec": 120,
+      "upgrade_curve": {
+        "cost_multiplier_per_level": 1.55,
+        "time_multiplier_per_level": 1.4
+      },
+      "power_rules": {
+        "idle_kw": 2,
+        "active_kw": 2,
+        "active_kw_scale_per_level": 1.05
+      },
+      "heat_rules": {
+        "idle_hps": 0.1,
+        "active_hps": 0.1,
+        "active_hps_scale_per_level": 1.03
+      },
+      "level_scaling": [
+        {
+          "stat": "inventory_capacity_m3",
+          "base": 60,
+          "per_level_add": 40
+        }
+      ]
+    },
+    {
+      "id": "life_support",
+      "name": "Life Support",
+      "icon": "bld_life_support",
+      "description": "Enables higher factory operation tiers.",
+      "v1_enabled": true,
+      "max_level": 10,
+      "unlock_prereqs": {
+        "station_level_min": 1,
+        "buildings_required": []
+      },
+      "base_build_cost": {
+        "metals": 35,
+        "conductors": 20,
+        "water": 80
+      },
+      "base_build_time_sec": 140,
+      "upgrade_curve": {
+        "cost_multiplier_per_level": 1.5,
+        "time_multiplier_per_level": 1.35
+      },
+      "power_rules": {
+        "idle_kw": 6,
+        "active_kw": 10,
+        "active_kw_scale_per_level": 1.08
+      },
+      "heat_rules": {
+        "idle_hps": 0.4,
+        "active_hps": 0.8,
+        "active_hps_scale_per_level": 1.08
+      },
+      "operational_rules": {
+        "consumes_per_sec": {
+          "water": 0.03
+        }
+      },
+      "level_scaling": [
+        {
+          "stat": "max_factory_level_gate",
+          "base": 1,
+          "per_level_add": 1
+        }
+      ]
+    },
+    {
+      "id": "scanner_survey",
+      "name": "Scanner and Survey",
+      "icon": "bld_scanner_survey",
+      "description": "Finds and analyzes asteroid opportunities.",
+      "v1_enabled": true,
+      "max_level": 8,
+      "unlock_prereqs": {
+        "station_level_min": 1,
+        "buildings_required": []
+      },
+      "base_build_cost": {
+        "metals": 30,
+        "conductors": 35
+      },
+      "base_build_time_sec": 110,
+      "upgrade_curve": {
+        "cost_multiplier_per_level": 1.52,
+        "time_multiplier_per_level": 1.35
+      },
+      "power_rules": {
+        "idle_kw": 4,
+        "active_kw": 12,
+        "active_kw_scale_per_level": 1.09
+      },
+      "heat_rules": {
+        "idle_hps": 0.3,
+        "active_hps": 0.9,
+        "active_hps_scale_per_level": 1.08
+      },
+      "level_scaling": [
+        {
+          "stat": "asteroid_list_size",
+          "base": 3,
+          "per_level_add": 1,
+          "v1_semantics": "number_of_asteroid_instances_returned_by_discovery_query"
+        },
+        {
+          "stat": "rare_asteroid_chance",
+          "base": 0.01,
+          "per_level_add": 0.01,
+          "v1_semantics": "query_time_bonus_weight_for_rare_template_selection"
+        }
+      ]
+    },
+    {
+      "id": "refinery",
+      "name": "Refinery",
+      "icon": "bld_refinery",
+      "description": "Converts raw materials into components.",
+      "v1_enabled": true,
+      "max_level": 10,
+      "unlock_prereqs": {
+        "station_level_min": 1,
+        "buildings_required": ["life_support:1"]
+      },
+      "base_build_cost": {
+        "metals": 70,
+        "conductors": 25,
+        "carbon_materials": 20
+      },
+      "base_build_time_sec": 200,
+      "upgrade_curve": {
+        "cost_multiplier_per_level": 1.58,
+        "time_multiplier_per_level": 1.42
+      },
+      "power_rules": {
+        "idle_kw": 5,
+        "active_kw": 24,
+        "active_kw_scale_per_level": 1.12
+      },
+      "heat_rules": {
+        "idle_hps": 0.5,
+        "active_hps": 2.4,
+        "active_hps_scale_per_level": 1.1
+      },
+      "level_scaling": [
+        {
+          "stat": "production_speed_multiplier",
+          "base": 1.0,
+          "per_level_multiplier": 1.12
+        },
+        {
+          "stat": "recipe_efficiency_multiplier",
+          "base": 1.0,
+          "per_level_multiplier": 1.02
+        }
+      ]
+    },
+    {
+      "id": "assembler",
+      "name": "Assembler",
+      "icon": "bld_assembler",
+      "description": "Builds advanced components from refined parts.",
+      "v1_enabled": true,
+      "max_level": 10,
+      "unlock_prereqs": {
+        "station_level_min": 2,
+        "buildings_required": ["refinery:2", "life_support:2"]
+      },
+      "base_build_cost": {
+        "metals": 90,
+        "conductors": 45,
+        "carbon_materials": 30
+      },
+      "base_build_time_sec": 260,
+      "upgrade_curve": {
+        "cost_multiplier_per_level": 1.62,
+        "time_multiplier_per_level": 1.46
+      },
+      "power_rules": {
+        "idle_kw": 6,
+        "active_kw": 30,
+        "active_kw_scale_per_level": 1.12
+      },
+      "heat_rules": {
+        "idle_hps": 0.6,
+        "active_hps": 2.7,
+        "active_hps_scale_per_level": 1.11
+      },
+      "level_scaling": [
+        {
+          "stat": "production_speed_multiplier",
+          "base": 1.0,
+          "per_level_multiplier": 1.1
+        },
+        {
+          "stat": "queue_slots",
+          "base": 1,
+          "per_level_add_every_n_levels": 3,
+          "add_value": 1
+        }
+      ]
+    },
+    {
+      "id": "mining_docks",
+      "name": "Mining Docks",
+      "icon": "bld_mining_docks",
+      "description": "Controls mining rigs and extraction throughput.",
+      "v1_enabled": true,
+      "max_level": 10,
+      "unlock_prereqs": {
+        "station_level_min": 1,
+        "buildings_required": ["scanner_survey:1"]
+      },
+      "base_build_cost": {
+        "metals": 85,
+        "conductors": 20,
+        "carbon_materials": 30
+      },
+      "base_build_time_sec": 220,
+      "upgrade_curve": {
+        "cost_multiplier_per_level": 1.6,
+        "time_multiplier_per_level": 1.43
+      },
+      "power_rules": {
+        "idle_kw": 4,
+        "active_kw": 18,
+        "active_kw_scale_per_level": 1.11
+      },
+      "heat_rules": {
+        "idle_hps": 0.4,
+        "active_hps": 1.9,
+        "active_hps_scale_per_level": 1.1
+      },
+      "level_scaling": [
+        {
+          "stat": "max_active_rigs",
+          "base": 1,
+          "per_level_add_every_n_levels": 2,
+          "add_value": 1
+        },
+        {
+          "stat": "mining_rate_multiplier",
+          "base": 1.0,
+          "per_level_multiplier": 1.09
+        }
+      ]
+    },
+    {
+      "id": "radiators",
+      "name": "Radiators",
+      "icon": "bld_radiators",
+      "description": "Dissipates station heat and prevents production stalls.",
+      "v1_enabled": true,
+      "max_level": 10,
+      "unlock_prereqs": {
+        "station_level_min": 1,
+        "buildings_required": []
+      },
+      "base_build_cost": {
+        "metals": 55,
+        "water": 40
+      },
+      "base_build_time_sec": 130,
+      "upgrade_curve": {
+        "cost_multiplier_per_level": 1.5,
+        "time_multiplier_per_level": 1.34
+      },
+      "power_rules": {
+        "idle_kw": 3,
+        "active_kw": 8,
+        "active_kw_scale_per_level": 1.06
+      },
+      "heat_rules": {
+        "idle_hps": -1.0,
+        "active_hps": -3.6,
+        "active_hps_scale_per_level": 1.18
+      },
+      "level_scaling": [
+        {
+          "stat": "heat_dissipation_hps",
+          "base": 3.6,
+          "per_level_multiplier": 1.18
+        }
+      ]
+    }
+  ]
+}
