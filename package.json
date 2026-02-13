@@ -1,0 +1,36 @@
+{
+  "name": "beltwork",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Beltwork full stack workspace",
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+    "dev:web": "npm run dev --workspace @beltwork/web",
+    "dev:api": "npm run dev --workspace @beltwork/api",
+    "build": "npm run build --workspaces",
+    "typecheck": "npm run typecheck --workspace @beltwork/api && npm run typecheck --workspace @beltwork/web",
+    "lint": "npm run lint --workspace @beltwork/web && npm run typecheck --workspace @beltwork/api",
+    "format": "prettier . --write",
+    "format:check": "prettier . --check",
+    "test": "npm run test --workspaces",
+    "check": "npm run format:check && npm run lint && npm run test && npm run build",
+    "db:generate": "npm run db:generate --workspace @beltwork/api",
+    "db:migrate": "npm run db:migrate --workspace @beltwork/api",
+    "prepare": "husky"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "devDependencies": {
+    "husky": "^9.1.7",
+    "lint-staged": "^16.2.1",
+    "prettier": "^3.6.2"
+  },
+  "lint-staged": {
+    "*.{js,jsx,ts,tsx,cjs,mjs,json,css,md,html,yml,yaml}": [
+      "prettier --write"
+    ]
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "container: build and run",
+      "type": "shell",
+      "command": "docker compose up --build api",
+      "problemMatcher": []
+    },
+    {
+      "label": "tests: run all",
+      "type": "shell",
+      "command": "npm test",
+      "problemMatcher": []
+    }
+  ]
+}

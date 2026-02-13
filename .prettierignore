@@ -1,0 +1,9 @@
+node_modules
+dist
+coverage
+drizzle
+package-lock.json
+gameconfig
+architecture.md
+beltwork_game_design_document.md
+AGENT.md

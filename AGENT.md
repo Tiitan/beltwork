@@ -87,3 +87,8 @@ Keep these files updated when scope changes:
 - `beltwork_game_design_document.md`
 - `architecture.md`
 - `AGENT.md`
+
+## Git LFS Asset Policy
+- Git LFS is used for game asset binaries.
+- Tracked extensions: `*.png`, `*.jpg`, `*.jpeg`, `*.webp`, `*.gif`, `*.psd`, `*.aseprite`, `*.wav`, `*.mp3`, `*.ogg`, `*.flac`, `*.mp4`, `*.webm`, `*.glb`, `*.gltf`, `*.fbx`, `*.obj`, `*.blend`, `*.ttf`, `*.otf`, `*.zip`, `*.7z`.
+- Policy: future commits only; no history rewrite/migration in this repo unless explicitly requested later.
