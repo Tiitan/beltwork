@@ -1,5 +1,4 @@
 {
-  "version": "v1-draft-2026-02-13",
   "coordinate_system": "cartesian_2d",
   "world_bounds": {
     "min_x": 0,

@@ -1,5 +1,4 @@
 {
-  "version": "v1-draft-2026-02-13",
   "mining_rules": {
     "base_cycle_sec": 120,
     "base_yield_per_cycle": 12,
@@ -15,14 +14,15 @@
       "name": "Common Chondrite",
       "icon": "ast_common_chondrite",
       "spawn_weight": 40,
-      "yield_multiplier": 1.0,
+      "yield_multiplier": 1,
       "depletion_units": 1800,
       "composition": {
         "metals": 0.55,
         "carbon_materials": 0.25,
         "water": 0.15,
         "conductors": 0.05
-      }
+      },
+      "icon_visual_description": "medium rocky asteroid, neutral brown-gray, modest metallic flecks."
     },
     {
       "id": "carbonaceous",
@@ -36,7 +36,8 @@
         "water": 0.3,
         "metals": 0.1,
         "conductors": 0.05
-      }
+      },
+      "icon_visual_description": "dark porous asteroid with carbon-rich matte surface and icy traces."
     },
     {
       "id": "metal_rich",
@@ -50,7 +51,8 @@
         "conductors": 0.15,
         "carbon_materials": 0.1,
         "water": 0.05
-      }
+      },
+      "icon_visual_description": "dense metallic asteroid with iron sheen and bright reflective seams."
     },
     {
       "id": "conductor_veined",
@@ -64,7 +66,8 @@
         "metals": 0.35,
         "carbon_materials": 0.1,
         "water": 0.1
-      }
+      },
+      "icon_visual_description": "rock body with visible luminous conductor veins (gold-copper lines)."
     },
     {
       "id": "icy_rare",
@@ -78,14 +81,20 @@
         "conductors": 0.15,
         "metals": 0.1,
         "carbon_materials": 0.1
-      }
+      },
+      "icon_visual_description": "crystalline icy asteroid with pale cyan highlights and frosted edges."
     }
   ],
   "scanner_integration": {
     "asteroid_list_size_semantics": "max number of asteroid instances returned by discovery query",
     "rare_asteroid_chance_semantics": "query-time bonus weighting for rare templates in discovery results",
     "spawn_time_effect": "none_when_spawn_once",
-    "rare_profile_ids": ["conductor_veined", "icy_rare"],
+    "rare_profile_ids": [
+      "conductor_veined",
+      "icy_rare"
+    ],
     "rare_chance_stat": "rare_asteroid_chance"
-  }
+  },
+  "icon_master_prompt": "cozy hard sci-fi asteroid icon, stylized 2D digital painting, clean silhouette, centered composition, high readability at small size, deep black space background with sparse stars, calm and readable mining target mood",
+  "icon_output_background": "opaque"
 }

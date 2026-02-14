@@ -1,0 +1,133 @@
+{
+  "inventory_model": {
+    "primary_capacity_metric": "volume_m3",
+    "secondary_metric": "mass_kg",
+    "model": "list_quantity"
+  },
+  "resources": [
+    {
+      "id": "water",
+      "name": "Water",
+      "icon": "res_water",
+      "tags": [
+        "raw"
+      ],
+      "base_mass_kg": 1,
+      "base_volume_m3": 0.001,
+      "base_value_credits": 1,
+      "icon_visual_description": "a sealed translucent water canister with soft blue liquid, subtle condensation, rounded industrial design."
+    },
+    {
+      "id": "metals",
+      "name": "Metals",
+      "icon": "res_metals",
+      "tags": [
+        "raw"
+      ],
+      "base_mass_kg": 2,
+      "base_volume_m3": 0.0008,
+      "base_value_credits": 2,
+      "icon_visual_description": "stacked refined metal ingots with rounded corners, brushed steel texture, tiny warm reflection."
+    },
+    {
+      "id": "conductors",
+      "name": "Conductors",
+      "icon": "res_conductors",
+      "tags": [
+        "raw"
+      ],
+      "base_mass_kg": 1.2,
+      "base_volume_m3": 0.0007,
+      "base_value_credits": 3,
+      "icon_visual_description": "bundled copper-gold conductive rods and wire coil, clean polished look, bright conductive glint."
+    },
+    {
+      "id": "carbon_materials",
+      "name": "Carbon Materials",
+      "icon": "res_carbon",
+      "tags": [
+        "raw"
+      ],
+      "base_mass_kg": 0.8,
+      "base_volume_m3": 0.0012,
+      "base_value_credits": 2,
+      "icon_visual_description": "matte black carbon pellets and composite sheets, lightweight texture, subtle blue-gray highlights."
+    },
+    {
+      "id": "metal_plates",
+      "name": "Metal Plates",
+      "icon": "cmp_metal_plates",
+      "tags": [
+        "component"
+      ],
+      "base_mass_kg": 1.8,
+      "base_volume_m3": 0.001,
+      "base_value_credits": 5,
+      "icon_visual_description": "layered machined metal plates with bolt holes, clean edges, practical industrial finish."
+    },
+    {
+      "id": "wire_spools",
+      "name": "Wire Spools",
+      "icon": "cmp_wire_spools",
+      "tags": [
+        "component"
+      ],
+      "base_mass_kg": 1,
+      "base_volume_m3": 0.001,
+      "base_value_credits": 6,
+      "icon_visual_description": "compact spool of insulated wire, teal and copper accents, neat winding pattern."
+    },
+    {
+      "id": "polymer_parts",
+      "name": "Polymer Parts",
+      "icon": "cmp_polymer_parts",
+      "tags": [
+        "component"
+      ],
+      "base_mass_kg": 0.9,
+      "base_volume_m3": 0.0012,
+      "base_value_credits": 5,
+      "icon_visual_description": "molded polymer brackets and housings, smooth finish, friendly rounded geometry."
+    },
+    {
+      "id": "coolant_cells",
+      "name": "Coolant Cells",
+      "icon": "cmp_coolant_cells",
+      "tags": [
+        "component"
+      ],
+      "base_mass_kg": 1.5,
+      "base_volume_m3": 0.0015,
+      "base_value_credits": 8,
+      "icon_visual_description": "compact cylindrical coolant cartridges with pale cyan core glow and safety cap."
+    },
+    {
+      "id": "rig_kits",
+      "name": "Rig Kits",
+      "icon": "adv_rig_kits",
+      "tags": [
+        "component",
+        "advanced_component"
+      ],
+      "base_mass_kg": 4,
+      "base_volume_m3": 0.003,
+      "base_value_credits": 24,
+      "icon_visual_description": "organized kit case with mini drill head, clamps, and tool modules, high-tech but cozy."
+    },
+    {
+      "id": "station_parts",
+      "name": "Station Parts",
+      "icon": "adv_station_parts",
+      "tags": [
+        "component",
+        "advanced_component"
+      ],
+      "base_mass_kg": 5,
+      "base_volume_m3": 0.004,
+      "base_value_credits": 30,
+      "icon_visual_description": "modular station panel with ports and soft indicator lights, sturdy and premium."
+    }
+  ],
+  "icon_master_prompt": "cozy hard sci-fi resource icon, stylized 2D digital painting, clean silhouette, soft ambient lighting, centered composition, high readability at small size, empty transparent background, warm and friendly space industry mood",
+  "icon_output_background": "transparent"
+}

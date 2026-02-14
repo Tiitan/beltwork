@@ -11,21 +11,28 @@
     "dev:api": "npm run dev --workspace @beltwork/api",
     "build": "npm run build --workspaces",
     "typecheck": "npm run typecheck --workspace @beltwork/api && npm run typecheck --workspace @beltwork/web",
-    "lint": "npm run lint --workspace @beltwork/web && npm run typecheck --workspace @beltwork/api",
+    "lint:scripts": "eslint scripts --max-warnings=0",
+    "lint": "npm run lint:scripts && npm run lint --workspace @beltwork/web && npm run typecheck --workspace @beltwork/api",
     "format": "prettier . --write",
     "format:check": "prettier . --check",
     "test": "npm run test --workspaces",
     "check": "npm run format:check && npm run lint && npm run test && npm run build",
     "db:generate": "npm run db:generate --workspace @beltwork/api",
     "db:migrate": "npm run db:migrate --workspace @beltwork/api",
+    "assets:generate": "node scripts/generate-assets-openai.mjs",
+    "assets:generate:openai": "node scripts/generate-assets-openai.mjs --provider openai",
     "prepare": "husky"
   },
   "engines": {
     "node": ">=20.0.0"
   },
   "devDependencies": {
+    "@eslint/js": "^9.39.1",
+    "eslint": "^9.39.1",
+    "globals": "^16.5.0",
     "husky": "^9.1.7",
     "lint-staged": "^16.2.1",
+    "openai": "^6.3.0",
     "prettier": "^3.6.2"
   },
   "lint-staged": {

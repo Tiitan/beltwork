@@ -1,5 +1,4 @@
 {
-  "version": "v1-draft-2026-02-13",
   "defaults": {
     "max_level": 10,
     "upgrade_cost_multiplier_per_level": 1.6,
@@ -11,7 +10,6 @@
       "name": "Fusion Reactor",
       "icon": "bld_fusion_reactor",
       "description": "Primary station power source. Consumes water for stable output.",
-      "v1_enabled": true,
       "max_level": 10,
       "unlock_prereqs": {
         "station_level_min": 1,
@@ -48,14 +46,15 @@
           "base": 120,
           "per_level_multiplier": 1.28
         }
-      ]
+      ],
+      "icon_visual_description": "compact fusion core unit with circular chamber, soft cyan plasma glow, safe contained design.",
+      "enabled": true
     },
     {
       "id": "storage",
       "name": "Storage",
       "icon": "bld_storage",
       "description": "Increases station inventory capacity.",
-      "v1_enabled": true,
       "max_level": 12,
       "unlock_prereqs": {
         "station_level_min": 1,
@@ -86,14 +85,15 @@
           "base": 60,
           "per_level_add": 40
         }
-      ]
+      ],
+      "icon_visual_description": "cargo bay container cluster with labeled drawers and stacked crates, tidy and practical.",
+      "enabled": true
     },
     {
       "id": "life_support",
       "name": "Life Support",
       "icon": "bld_life_support",
       "description": "Enables higher factory operation tiers.",
-      "v1_enabled": true,
       "max_level": 10,
       "unlock_prereqs": {
         "station_level_min": 1,
@@ -130,14 +130,15 @@
           "base": 1,
           "per_level_add": 1
         }
-      ]
+      ],
+      "icon_visual_description": "life-support module with air recycler vents, green status lights, small plant-friendly vibe.",
+      "enabled": true
     },
     {
       "id": "scanner_survey",
       "name": "Scanner and Survey",
       "icon": "bld_scanner_survey",
       "description": "Finds and analyzes asteroid opportunities.",
-      "v1_enabled": true,
       "max_level": 8,
       "unlock_prereqs": {
         "station_level_min": 1,
@@ -167,26 +168,29 @@
           "stat": "asteroid_list_size",
           "base": 3,
           "per_level_add": 1,
-          "v1_semantics": "number_of_asteroid_instances_returned_by_discovery_query"
+          "semantics": "number_of_asteroid_instances_returned_by_discovery_query"
         },
         {
           "stat": "rare_asteroid_chance",
           "base": 0.01,
           "per_level_add": 0.01,
-          "v1_semantics": "query_time_bonus_weight_for_rare_template_selection"
+          "semantics": "query_time_bonus_weight_for_rare_template_selection"
         }
-      ]
+      ],
+      "icon_visual_description": "rotating sensor dish and scanning antenna array, gentle radar arc motif.",
+      "enabled": true
     },
     {
       "id": "refinery",
       "name": "Refinery",
       "icon": "bld_refinery",
       "description": "Converts raw materials into components.",
-      "v1_enabled": true,
       "max_level": 10,
       "unlock_prereqs": {
         "station_level_min": 1,
-        "buildings_required": ["life_support:1"]
+        "buildings_required": [
+          "life_support:1"
+        ]
       },
       "base_build_cost": {
         "metals": 70,
@@ -211,26 +215,30 @@
       "level_scaling": [
         {
           "stat": "production_speed_multiplier",
-          "base": 1.0,
+          "base": 1,
           "per_level_multiplier": 1.12
         },
         {
           "stat": "recipe_efficiency_multiplier",
-          "base": 1.0,
+          "base": 1,
           "per_level_multiplier": 1.02
         }
-      ]
+      ],
+      "icon_visual_description": "compact refining machine with pipes and separator tank, warm amber process lights.",
+      "enabled": true
     },
     {
       "id": "assembler",
       "name": "Assembler",
       "icon": "bld_assembler",
       "description": "Builds advanced components from refined parts.",
-      "v1_enabled": true,
       "max_level": 10,
       "unlock_prereqs": {
         "station_level_min": 2,
-        "buildings_required": ["refinery:2", "life_support:2"]
+        "buildings_required": [
+          "refinery:2",
+          "life_support:2"
+        ]
       },
       "base_build_cost": {
         "metals": 90,
@@ -255,7 +263,7 @@
       "level_scaling": [
         {
           "stat": "production_speed_multiplier",
-          "base": 1.0,
+          "base": 1,
           "per_level_multiplier": 1.1
         },
         {
@@ -264,18 +272,21 @@
           "per_level_add_every_n_levels": 3,
           "add_value": 1
         }
-      ]
+      ],
+      "icon_visual_description": "precision assembly bench with robotic arm and component tray, friendly utility aesthetic.",
+      "enabled": true
     },
     {
       "id": "mining_docks",
       "name": "Mining Docks",
       "icon": "bld_mining_docks",
       "description": "Controls mining rigs and extraction throughput.",
-      "v1_enabled": true,
       "max_level": 10,
       "unlock_prereqs": {
         "station_level_min": 1,
-        "buildings_required": ["scanner_survey:1"]
+        "buildings_required": [
+          "scanner_survey:1"
+        ]
       },
       "base_build_cost": {
         "metals": 85,
@@ -306,17 +317,18 @@
         },
         {
           "stat": "mining_rate_multiplier",
-          "base": 1.0,
+          "base": 1,
           "per_level_multiplier": 1.09
         }
-      ]
+      ],
+      "icon_visual_description": "docking clamp platform with small mining shuttle cradle, clear mechanical silhouette.",
+      "enabled": true
     },
     {
       "id": "radiators",
       "name": "Radiators",
       "icon": "bld_radiators",
       "description": "Dissipates station heat and prevents production stalls.",
-      "v1_enabled": true,
       "max_level": 10,
       "unlock_prereqs": {
         "station_level_min": 1,
@@ -337,7 +349,7 @@
         "active_kw_scale_per_level": 1.06
       },
       "heat_rules": {
-        "idle_hps": -1.0,
+        "idle_hps": -1,
         "active_hps": -3.6,
         "active_hps_scale_per_level": 1.18
       },
@@ -347,7 +359,11 @@
           "base": 3.6,
           "per_level_multiplier": 1.18
         }
-      ]
+      ],
+      "icon_visual_description": "fold-out radiator fins with cool blue thermal gradient and vent detail.",
+      "enabled": true
     }
-  ]
+  ],
+  "icon_master_prompt": "cozy hard sci-fi building icon, stylized 2D digital painting, clean silhouette, soft ambient lighting, centered composition, high readability at small size, space station interior/exterior background context, warm and friendly orbital industry mood",
+  "icon_output_background": "opaque"
 }

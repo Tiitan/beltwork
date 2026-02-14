@@ -170,7 +170,7 @@ Compute elapsed time from persisted timestamps when player hits API.
 
 ## 6.1 Map and Distance Contract
 
-- Coordinate system: 2D cartesian (`map.v1.json`).
+- Coordinate system: 2D cartesian (`map.json`).
 - Runtime distance formula:
   - `distance_units = sqrt((asteroid_x - station_x)^2 + (asteroid_y - station_y)^2)`
 - Mining travel multiplier uses runtime distance from asteroid position.
@@ -312,10 +312,10 @@ For now, keep `architecture.md` at repo root as requested.
 - Integration tests: API command -> DB state -> catch-up correctness.
 - Replay test: apply same event twice; state must not duplicate rewards.
 - Config tests:
-  - `asteroids.v1.json` contains no `distance_au`.
+  - `asteroids.json` contains no `distance_au`.
   - every asteroid template has `spawn_weight > 0`.
   - every asteroid template `composition` sums to 1.0 within epsilon.
-  - `map.v1.json` bounds and spawn constraints are valid.
+  - `map.json` bounds and spawn constraints are valid.
 - Domain tests:
   - distance formula correctness from station and asteroid coordinates.
   - mining travel multiplier uses runtime `distance_units`.
