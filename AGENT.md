@@ -84,8 +84,11 @@ Out of scope:
 
 ## Documentation
 Keep these files updated when scope changes:
-- `beltwork_game_design_document.md`
-- `architecture.md`
+- `docs/beltwork_game_design_document.md`
+- `docs/architecture.md`
+- `docs/route.md`
+- `docs/database.md`
+- `docs/style-guide.md`
 - `AGENT.md`
 
 ## Git LFS Asset Policy

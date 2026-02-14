@@ -1,12 +1,29 @@
 {
   "version": "0.2.0",
+  "compounds": [
+    {
+      "name": "Run (web + api)",
+      "configurations": ["API (debug)", "Web (dev server)"],
+      "stopAll": true
+    }
+  ],
   "configurations": [
     {
-      "name": "Run (locally, debug)",
+      "name": "API (debug)",
       "type": "pwa-node",
       "request": "launch",
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev:api"],
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "skipFiles": ["<node_internals>/**"]
+    },
+    {
+      "name": "Web (dev server)",
+      "type": "pwa-node",
+      "request": "launch",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev:web"],
       "cwd": "${workspaceFolder}",
       "console": "integratedTerminal",
       "skipFiles": ["<node_internals>/**"]

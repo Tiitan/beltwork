@@ -1,149 +1,310 @@
-import { useMemo, useState } from 'react'
+import { type FormEvent, useEffect, useMemo, useState } from 'react'
+import './App.css'
+import { LoginPage } from './pages/LoginPage'
+import { StationPage } from './pages/StationPage'
+
+type AppScreen = 'login' | 'station'
+
+type InventoryRow = {
+  resourceKey: string
+  amount: number
+}
+
+type BuildingRow = {
+  type: string
+  level: number
+  status: 'idle' | 'upgrading'
+}
+
+type AsteroidRow = {
+  id: string
+  templateId: string
+  distanceFromStation: number
+  remainingUnits: number
+  isDepleted: boolean
+}
+
+type SessionType = 'guest' | 'local'
+
+type Profile = {
+  authType: SessionType
+  displayName: string
+  email: string
+  password: string
+}
+
+const initialInventory: InventoryRow[] = [
+  { resourceKey: 'res_metals', amount: 120 },
+  { resourceKey: 'res_carbon', amount: 45 },
+  { resourceKey: 'cmp_metal_plates', amount: 12 },
+]
+
+const initialBuildings: BuildingRow[] = [
+  { type: 'fusion_reactor', level: 1, status: 'idle' },
+  { type: 'refinery', level: 1, status: 'upgrading' },
+  { type: 'assembler', level: 1, status: 'idle' },
+]
+
+const discoveredAsteroids: AsteroidRow[] = [
+  {
+    id: 'ast-101',
+    templateId: 'ast_common_chondrite',
+    distanceFromStation: 18,
+    remainingUnits: 950,
+    isDepleted: false,
+  },
+  {
+    id: 'ast-202',
+    templateId: 'ast_metal_rich',
+    distanceFromStation: 41,
+    remainingUnits: 510,
+    isDepleted: false,
+  },
+]
+
+const SESSION_STORAGE_KEY = 'beltwork_session_type'
+const PROFILE_STORAGE_KEY = 'beltwork_profile'
+const placeholderAssets = {
+  loginBackground: 'bg_login_nebula_placeholder.png',
+  stationBackground: 'bg_station_observation_deck_placeholder.png',
+  loginIllustration: 'chr_guest_pilot_placeholder.png',
+  stationBackdrop: 'env_station_hab_ring_placeholder.png',
+  panelTexture: 'ui_panel_brushed_titanium_placeholder.png',
+}
+
+function getDefaultGuestProfile(): Profile {
+  return {
+    authType: 'guest',
+    displayName: 'Calm Prospector 0421',
+    email: '',
+    password: '',
+  }
+}
+
+function readSessionType(): SessionType | null {
+  const value = window.localStorage.getItem(SESSION_STORAGE_KEY)
+  if (value === 'guest' || value === 'local') {
+    return value
+  }
+
+  return null
+}
+
+function hasSession(): boolean {
+  return readSessionType() !== null
+}
+
+function writeSession(sessionType: SessionType) {
+  window.localStorage.setItem(SESSION_STORAGE_KEY, sessionType)
+}
+
+function readProfile(): Profile {
+  const raw = window.localStorage.getItem(PROFILE_STORAGE_KEY)
+  if (!raw) {
+    return getDefaultGuestProfile()
+  }
+
+  try {
+    const parsed = JSON.parse(raw) as Partial<Profile>
+    return {
+      authType: parsed.authType === 'local' ? 'local' : 'guest',
+      displayName:
+        typeof parsed.displayName === 'string' && parsed.displayName.trim().length > 0
+          ? parsed.displayName
+          : getDefaultGuestProfile().displayName,
+      email: typeof parsed.email === 'string' ? parsed.email : '',
+      password: typeof parsed.password === 'string' ? parsed.password : '',
+    }
+  } catch {
+    return getDefaultGuestProfile()
+  }
+}
+
+function writeProfile(profile: Profile) {
+  window.localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(profile))
+}
+
+function getScreenFromPath(pathname: string): AppScreen {
+  if (pathname === '/station') {
+    return 'station'
+  }
+
+  return 'login'
+}
 
 function App() {
-  const [isInfinite, setIsInfinite] = useState(true)
-  const [targetCycles, setTargetCycles] = useState('10')
-  const [status, setStatus] = useState<'running' | 'paused' | 'completed'>('running')
-  const [pausedReason, setPausedReason] = useState<string | null>(null)
-  const [cyclesCompleted, setCyclesCompleted] = useState(3)
+  const [pathname, setPathname] = useState(() => window.location.pathname)
+  const [profile, setProfile] = useState<Profile>(() => readProfile())
+  const [settingsForm, setSettingsForm] = useState(() => {
+    const initialProfile = readProfile()
+    return {
+      displayName: initialProfile.displayName,
+      email: initialProfile.email,
+      password: initialProfile.password,
+    }
+  })
+  const [lastUpdatedAt, setLastUpdatedAt] = useState(() => new Date())
+  const [selectedAsteroidId, setSelectedAsteroidId] = useState(discoveredAsteroids[0]?.id ?? '')
+  const [selectedRecipeKey, setSelectedRecipeKey] = useState('rcp_refine_metal_plates')
+  const [inventory] = useState(initialInventory)
+  const [buildings] = useState(initialBuildings)
 
-  const finiteTarget = Number.parseInt(targetCycles, 10)
-  const normalizedTarget = Number.isNaN(finiteTarget) ? 0 : finiteTarget
-  const progressLabel = useMemo(() => {
-    if (isInfinite) {
-      return `${cyclesCompleted} / ∞`
+  const screen = getScreenFromPath(pathname)
+
+  const selectedAsteroid = useMemo(
+    () => discoveredAsteroids.find((asteroid) => asteroid.id === selectedAsteroidId),
+    [selectedAsteroidId],
+  )
+
+  useEffect(() => {
+    function onPopState() {
+      setPathname(window.location.pathname)
     }
 
-    return `${cyclesCompleted} / ${Math.max(normalizedTarget, 0)}`
-  }, [cyclesCompleted, isInfinite, normalizedTarget])
-
-  function simulateBlocked() {
-    setStatus('paused')
-    setPausedReason('insufficient_inputs')
-  }
-
-  function resume() {
-    setStatus('running')
-    setPausedReason(null)
-  }
-
-  function completeFinite() {
-    if (!isInfinite) {
-      setCyclesCompleted(Math.max(normalizedTarget, 0))
-      setStatus('completed')
-      setPausedReason(null)
+    if (window.location.pathname === '/') {
+      const landingPath = hasSession() ? '/station' : '/login'
+      window.history.replaceState(null, '', landingPath)
+      setPathname(landingPath)
     }
+
+    if (window.location.pathname === '/station' && !hasSession()) {
+      window.history.replaceState(null, '', '/login')
+      setPathname('/login')
+    }
+
+    if (window.location.pathname === '/login' && hasSession()) {
+      window.history.replaceState(null, '', '/station')
+      setPathname('/station')
+    }
+
+    window.addEventListener('popstate', onPopState)
+
+    return () => {
+      window.removeEventListener('popstate', onPopState)
+    }
+  }, [])
+
+  function navigate(path: string) {
+    window.history.pushState(null, '', path)
+    setPathname(path)
+  }
+
+  function startNowAsGuest() {
+    const guestProfile = getDefaultGuestProfile()
+    writeProfile(guestProfile)
+    setProfile(guestProfile)
+    setSettingsForm({
+      displayName: guestProfile.displayName,
+      email: guestProfile.email,
+      password: guestProfile.password,
+    })
+    writeSession('guest')
+    setLastUpdatedAt(new Date())
+    navigate('/station')
+  }
+
+  function signIn(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    const nextProfile: Profile = {
+      ...profile,
+      authType: 'local',
+    }
+    writeProfile(nextProfile)
+    setProfile(nextProfile)
+    writeSession('local')
+    setLastUpdatedAt(new Date())
+    navigate('/station')
+  }
+
+  function saveSettings(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+
+    const normalizedDisplayName = settingsForm.displayName.trim()
+    const normalizedEmail = settingsForm.email.trim()
+    const normalizedPassword = settingsForm.password
+
+    const activatedAccount = normalizedEmail.length > 0 && normalizedPassword.length > 0
+
+    const nextProfile: Profile = {
+      authType: activatedAccount ? 'local' : profile.authType,
+      displayName: normalizedDisplayName.length > 0 ? normalizedDisplayName : profile.displayName,
+      email: normalizedEmail,
+      password: normalizedPassword,
+    }
+
+    setProfile(nextProfile)
+    writeProfile(nextProfile)
+
+    if (activatedAccount) {
+      writeSession('local')
+    }
+  }
+
+  function disconnect() {
+    const sessionType = readSessionType()
+
+    if (sessionType === 'guest') {
+      const confirmed = window.confirm(
+        'You are using a guest session. Disconnecting now will delete this guest progress. Activate your account with email and password before disconnecting if you want to keep your save. Disconnect anyway?',
+      )
+      if (!confirmed) {
+        return
+      }
+      window.localStorage.removeItem(PROFILE_STORAGE_KEY)
+      const guestProfile = getDefaultGuestProfile()
+      setProfile(guestProfile)
+      setSettingsForm({
+        displayName: guestProfile.displayName,
+        email: guestProfile.email,
+        password: guestProfile.password,
+      })
+    }
+
+    window.localStorage.removeItem(SESSION_STORAGE_KEY)
+    navigate('/login')
+  }
+
+  function refreshStation() {
+    setLastUpdatedAt(new Date())
   }
 
   return (
-    <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-gradient-to-br from-slate-900 via-sky-900 to-cyan-800 px-4 py-8 text-slate-100">
-      <div className="pointer-events-none absolute -left-24 -top-20 h-72 w-72 rounded-full bg-cyan-400/30 blur-3xl" />
-      <div className="pointer-events-none absolute -bottom-16 -right-14 h-72 w-72 rounded-full bg-blue-300/20 blur-3xl" />
-      <section className="w-full max-w-2xl rounded-2xl border border-white/20 bg-white/10 p-7 shadow-2xl backdrop-blur-md">
-        <p className="mb-2 text-xs uppercase tracking-[0.25em] text-cyan-200">Beltwork</p>
-        <h1 className="mb-2 text-3xl font-semibold text-white">Log in</h1>
-        <p className="mb-6 text-sm text-slate-200">
-          Access your game dashboard and manage your settlements.
-        </p>
-        <div className="grid gap-6 md:grid-cols-2">
-          <form className="space-y-4">
-            <label className="block text-sm">
-              <span className="mb-1 block text-slate-100">Email</span>
-              <input
-                type="email"
-                required
-                placeholder="pilot@beltwork.space"
-                className="w-full rounded-lg border border-white/30 bg-white/85 px-3 py-2 text-slate-900 outline-none ring-cyan-400 transition focus:ring-2"
-              />
-            </label>
-            <label className="block text-sm">
-              <span className="mb-1 block text-slate-100">Password</span>
-              <input
-                type="password"
-                required
-                placeholder="Your password"
-                className="w-full rounded-lg border border-white/30 bg-white/85 px-3 py-2 text-slate-900 outline-none ring-cyan-400 transition focus:ring-2"
-              />
-            </label>
-            <button
-              type="submit"
-              className="w-full rounded-lg bg-cyan-400 px-4 py-2.5 font-medium text-slate-900 transition hover:bg-cyan-300"
-            >
-              Sign in
-            </button>
-            <p className="mt-4 text-center text-xs text-slate-200">
-              New commander? Create your account in the onboarding flow.
-            </p>
-          </form>
-          <section
-            aria-label="Factory queue configuration"
-            className="rounded-xl border border-white/20 p-4"
-          >
-            <h2 className="mb-3 text-lg font-semibold">Factory Queue</h2>
-            <label className="mb-3 flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={isInfinite}
-                onChange={(event) => {
-                  setIsInfinite(event.target.checked)
-                  setStatus('running')
-                  setPausedReason(null)
-                }}
-              />
-              Infinite production
-            </label>
-            {!isInfinite && (
-              <label className="mb-3 block text-sm">
-                <span className="mb-1 block">Target cycles</span>
-                <input
-                  type="number"
-                  min={1}
-                  value={targetCycles}
-                  onChange={(event) => setTargetCycles(event.target.value)}
-                  className="w-full rounded-lg border border-white/30 bg-white/85 px-3 py-2 text-slate-900 outline-none ring-cyan-400 transition focus:ring-2"
-                />
-              </label>
-            )}
-            <dl className="mb-3 space-y-1 text-sm">
-              <div className="flex justify-between gap-2">
-                <dt>Status</dt>
-                <dd>{status}</dd>
-              </div>
-              <div className="flex justify-between gap-2">
-                <dt>Progress</dt>
-                <dd>{progressLabel}</dd>
-              </div>
-              <div className="flex justify-between gap-2">
-                <dt>Paused reason</dt>
-                <dd>{pausedReason ?? 'none'}</dd>
-              </div>
-            </dl>
-            <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
-                onClick={simulateBlocked}
-                className="rounded-lg border border-white/40 px-3 py-1.5 text-sm"
-              >
-                Simulate blocked
-              </button>
-              <button
-                type="button"
-                onClick={resume}
-                className="rounded-lg border border-white/40 px-3 py-1.5 text-sm"
-              >
-                Resume
-              </button>
-              <button
-                type="button"
-                onClick={completeFinite}
-                className="rounded-lg border border-white/40 px-3 py-1.5 text-sm"
-              >
-                Complete finite
-              </button>
-            </div>
-          </section>
-        </div>
-      </section>
+    <main className={`app-shell ${screen === 'login' ? 'app-shell-login' : 'app-shell-station'}`}>
+      {screen === 'login' ? (
+        <LoginPage
+          placeholderAssets={placeholderAssets}
+          onSignIn={signIn}
+          onStartNow={startNowAsGuest}
+        />
+      ) : (
+        <StationPage
+          accountStatus={profile.authType}
+          buildings={buildings}
+          discoveredAsteroids={discoveredAsteroids}
+          displayName={profile.displayName}
+          inventory={inventory}
+          lastUpdatedAt={lastUpdatedAt}
+          placeholderAssets={placeholderAssets}
+          settingsForm={settingsForm}
+          selectedAsteroid={selectedAsteroid}
+          selectedAsteroidId={selectedAsteroidId}
+          selectedRecipeKey={selectedRecipeKey}
+          onDisconnect={disconnect}
+          onRefreshStation={refreshStation}
+          onSaveSettings={saveSettings}
+          onSettingsDisplayNameChange={(value) =>
+            setSettingsForm((current) => ({ ...current, displayName: value }))
+          }
+          onSettingsEmailChange={(value) =>
+            setSettingsForm((current) => ({ ...current, email: value }))
+          }
+          onSettingsPasswordChange={(value) =>
+            setSettingsForm((current) => ({ ...current, password: value }))
+          }
+          onSelectedAsteroidChange={setSelectedAsteroidId}
+          onSelectedRecipeChange={setSelectedRecipeKey}
+        />
+      )}
     </main>
   )
 }
