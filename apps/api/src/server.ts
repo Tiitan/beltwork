@@ -28,10 +28,6 @@ export function buildServer(options: BuildServerOptions = {}) {
     origin: true,
   })
 
-  app.get('/live', async () => {
-    return { status: 'ok' }
-  })
-
   app.get('/ready', async (_, reply) => {
     try {
       await checkReadiness()
@@ -42,7 +38,7 @@ export function buildServer(options: BuildServerOptions = {}) {
     }
   })
 
-  app.get('/health', async () => {
+  app.get('/live', async () => {
     return { status: 'ok' }
   })
 

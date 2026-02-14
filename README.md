@@ -107,7 +107,6 @@ npm run db:migrate
 - `GET /ready`: readiness probe, checks PostgreSQL connectivity (`select 1`)
   - returns `200` with `{ "status": "ready" }` when DB is reachable
   - returns `503` with `{ "status": "not_ready" }` when DB is not reachable
-- `GET /health`: compatibility route, returns `200` with `{ "status": "ok" }`
 
 ## Docker
 
