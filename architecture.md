@@ -46,12 +46,23 @@ For v1, PostgreSQL can store both game state and event queue.
 ### Interaction Model
 1. Player opens/refreshes page.
 2. API authenticates player, loads station aggregate.
-3. API runs catch-up simulation from `last_simulated_at` to `now`.
+3. API runs catch-up simulation from station `last_simulated_at` to `now`.
 4. API applies due domain events (building completion, mining completion, production completion).
 5. API persists updates transactionally.
 6. API returns read model to frontend.
 
 No component runs a global tick.
+
+### Simulation Execution Contract
+- Station simulation runs on:
+  - player connection/read queries (for example station bootstrap/read endpoints)
+  - all player action queries before command application
+  - processing of completed domain events
+- Backend simulation is authoritative and persists the canonical state.
+- Frontend predicts current values from the latest authoritative snapshot:
+  - countdowns and progress bars are client-computed between server responses
+  - predicted values are replaced by authoritative values after the next API response
+  - any drift is resolved in favor of backend state
 
 ## 3.1 Guest-First Identity Flow
 
@@ -151,7 +162,7 @@ Compute elapsed time from persisted timestamps when player hits API.
 - `factory_jobs`
 - `domain_events`
 - `simulation_locks` (optional; can use row lock on station)
-- `player_sessions` (if using server-side session IDs in cookie)
+- `sessions` (if using server-side session IDs in cookie)
 
 ### Key columns
 - time fields: `created_at`, `updated_at`, `last_simulated_at`, `due_at`, `processed_at`
@@ -161,8 +172,8 @@ Compute elapsed time from persisted timestamps when player hits API.
 
 ### Indexes
 - `domain_events (due_at, processed_at)`
-- `mining_operations (station_id, status)`
-- `factory_jobs (station_id, status)`
+- `mining_operations (station_id, completed_at)`
+- `factory_jobs (station_id, completed_at)`
 - `station_inventory (station_id, resource_key)` unique
 - `players (email)` unique where email is not null
 - `asteroid (is_depleted, template_id)`

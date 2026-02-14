@@ -85,6 +85,10 @@ npm test
 
 Use `apps/api/.env.example` as template for local API env values.
 
+Schema reference:
+
+- `docs/database.md`
+
 Generate migrations:
 
 ```bash
