@@ -1,3 +1,5 @@
+import type { FormEvent } from 'react'
+
 type BuildingRow = {
   type: string
   level: number
@@ -17,14 +19,6 @@ type InventoryRow = {
   amount: number
 }
 
-type PlaceholderAssets = {
-  loginBackground: string
-  stationBackground: string
-  loginIllustration: string
-  stationBackdrop: string
-  panelTexture: string
-}
-
 type StationPageProps = {
   accountStatus: 'guest' | 'local'
   buildings: BuildingRow[]
@@ -32,7 +26,6 @@ type StationPageProps = {
   displayName: string
   inventory: InventoryRow[]
   lastUpdatedAt: Date
-  placeholderAssets: PlaceholderAssets
   settingsForm: {
     displayName: string
     email: string
@@ -58,7 +51,6 @@ export function StationPage({
   displayName,
   inventory,
   lastUpdatedAt,
-  placeholderAssets,
   settingsForm,
   selectedAsteroid,
   selectedAsteroidId,
@@ -173,13 +165,6 @@ export function StationPage({
           </div>
         </section>
 
-        <section aria-label="Asset placeholders" className="card placeholder-panel">
-          <h2>Asset placeholders</h2>
-          <p>Station background: {placeholderAssets.stationBackground}</p>
-          <p>Station backdrop: {placeholderAssets.stationBackdrop}</p>
-          <p>Panel texture: {placeholderAssets.panelTexture}</p>
-        </section>
-
         <section aria-label="Account settings" className="card">
           <h2>Account settings</h2>
           <p>Set email, password, and display name.</p>
@@ -215,4 +200,3 @@ export function StationPage({
     </section>
   )
 }
-import type { FormEvent } from 'react'

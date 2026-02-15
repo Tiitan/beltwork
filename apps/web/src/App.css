@@ -16,16 +16,16 @@
   background-image:
     radial-gradient(circle at 20% 20%, rgba(75, 145, 196, 0.35), transparent 40%),
     radial-gradient(circle at 80% 75%, rgba(128, 97, 174, 0.28), transparent 45%),
-    linear-gradient(165deg, rgba(7, 11, 24, 0.98), rgba(14, 30, 45, 0.93)),
-    url('/assets/backgrounds/bg_login_nebula_placeholder.png');
+    linear-gradient(165deg, rgba(7, 11, 24, 0.98), rgba(14, 30, 45, 0.7)),
+    url('/assets/page/bg_login.png');
 }
 
 .app-shell-station {
   background-image:
     radial-gradient(circle at 10% 15%, rgba(66, 164, 138, 0.25), transparent 40%),
     radial-gradient(circle at 88% 85%, rgba(97, 129, 199, 0.22), transparent 42%),
-    linear-gradient(170deg, rgba(4, 10, 19, 0.97), rgba(20, 39, 48, 0.94)),
-    url('/assets/backgrounds/bg_station_observation_deck_placeholder.png');
+    linear-gradient(170deg, rgba(4, 10, 19, 0.97), rgba(20, 39, 48, 0.7)),
+    url('/assets/page/bg_station.png');
 }
 
 .screen {
@@ -68,8 +68,7 @@ h2 {
   border: 1px solid rgba(145, 186, 221, 0.25);
   border-radius: 14px;
   background:
-    linear-gradient(rgba(157, 187, 214, 0.04), rgba(157, 187, 214, 0.04)),
-    url('/assets/ui/ui_panel_brushed_titanium_placeholder.png'), rgba(7, 18, 31, 0.8);
+    linear-gradient(rgba(157, 187, 214, 0.04), rgba(157, 187, 214, 0.04)), rgba(7, 18, 31, 0.8);
   box-shadow: 0 14px 36px rgba(3, 7, 14, 0.35);
   backdrop-filter: blur(3px);
 }

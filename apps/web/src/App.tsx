@@ -64,13 +64,6 @@ const discoveredAsteroids: AsteroidRow[] = [
 
 const SESSION_STORAGE_KEY = 'beltwork_session_type'
 const PROFILE_STORAGE_KEY = 'beltwork_profile'
-const placeholderAssets = {
-  loginBackground: 'bg_login_nebula_placeholder.png',
-  stationBackground: 'bg_station_observation_deck_placeholder.png',
-  loginIllustration: 'chr_guest_pilot_placeholder.png',
-  stationBackdrop: 'env_station_hab_ring_placeholder.png',
-  panelTexture: 'ui_panel_brushed_titanium_placeholder.png',
-}
 
 function getDefaultGuestProfile(): Profile {
   return {
@@ -271,11 +264,7 @@ function App() {
   return (
     <main className={`app-shell ${screen === 'login' ? 'app-shell-login' : 'app-shell-station'}`}>
       {screen === 'login' ? (
-        <LoginPage
-          placeholderAssets={placeholderAssets}
-          onSignIn={signIn}
-          onStartNow={startNowAsGuest}
-        />
+        <LoginPage onSignIn={signIn} onStartNow={startNowAsGuest} />
       ) : (
         <StationPage
           accountStatus={profile.authType}
@@ -284,7 +273,6 @@ function App() {
           displayName={profile.displayName}
           inventory={inventory}
           lastUpdatedAt={lastUpdatedAt}
-          placeholderAssets={placeholderAssets}
           settingsForm={settingsForm}
           selectedAsteroid={selectedAsteroid}
           selectedAsteroidId={selectedAsteroidId}

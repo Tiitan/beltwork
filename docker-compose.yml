@@ -30,8 +30,21 @@ services:
       NODE_ENV: production
       PORT: 3000
       DATABASE_URL: postgresql://postgres:postgres@postgres:5432/beltwork
+      WEB_APP_URL: http://localhost:5173
     ports:
       - '3000:3000'
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    container_name: beltwork-web
+    restart: unless-stopped
+    ports:
+      - '5173:5173'
+    depends_on:
+      api:
+        condition: service_started
 
 volumes:
   postgres_data:

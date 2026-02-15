@@ -12,8 +12,12 @@
       "name": "API (debug)",
       "type": "pwa-node",
       "request": "launch",
+      "preLaunchTask": "docker: start postgres",
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev:api"],
+      "env": {
+        "DATABASE_URL": "postgresql://postgres:postgres@127.0.0.1:5432/beltwork"
+      },
       "cwd": "${workspaceFolder}",
       "console": "integratedTerminal",
       "skipFiles": ["<node_internals>/**"]

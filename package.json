@@ -21,6 +21,9 @@
     "db:migrate": "npm run db:migrate --workspace @beltwork/api",
     "assets:generate": "node scripts/generate-assets-openai.mjs",
     "assets:generate:openai": "node scripts/generate-assets-openai.mjs --provider openai",
+    "assets:generate:pages": "node scripts/generate-page-assets.mjs",
+    "assets:generate:pages:dry-run": "node scripts/generate-page-assets.mjs --dry-run",
+    "assets:generate:pages:openai": "node scripts/generate-page-assets.mjs --provider openai",
     "prepare": "husky"
   },
   "engines": {
