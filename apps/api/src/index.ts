@@ -1,6 +1,11 @@
 import { env } from './config.js'
 import { buildServer } from './server.js'
 
+/**
+ * Boots the API server process with configured host and port.
+ *
+ * @returns Resolves when the server starts listening.
+ */
 async function start() {
   const server = buildServer()
 
@@ -15,4 +20,7 @@ async function start() {
   }
 }
 
+/**
+ * Starts the API runtime on module load.
+ */
 start()

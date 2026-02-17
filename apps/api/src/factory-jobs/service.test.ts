@@ -6,10 +6,19 @@ import {
   type SelectRecipeInput,
 } from './service.js'
 
+/**
+ * Preserves inferred literal types for test payload fixtures.
+ *
+ * @param value Recipe input fixture.
+ * @returns The same fixture value with `SelectRecipeInput` typing.
+ */
 function makeInput(value: SelectRecipeInput): SelectRecipeInput {
   return value
 }
 
+/**
+ * Validates factory domain rules for queueing and catch-up behavior.
+ */
 describe('factory job domain logic', () => {
   it('rejects non-positive target cycles for finite jobs', () => {
     const parsed = selectRecipeInputSchema.safeParse({

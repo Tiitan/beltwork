@@ -3,7 +3,16 @@ import { BrowserRouter } from 'react-router-dom'
 import { vi } from 'vitest'
 import App from './App'
 
+/**
+ * Covers login/station routing and session flow behavior.
+ */
 describe('Login page', () => {
+  /**
+   * Renders the app at a specific browser path for route assertions.
+   *
+   * @param path Initial browser pathname to test.
+   * @returns Testing Library render result.
+   */
   function renderAppAt(path: string) {
     window.history.replaceState(null, '', path)
     return render(

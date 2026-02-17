@@ -1,6 +1,24 @@
 import { describe, expect, it } from 'vitest'
 import { buildServer } from './server.js'
 
+/**
+ * Minimal event shape used for asserting emitted event types.
+ */
+type EventTypeOnly = { event_type: string }
+
+/**
+ * Projects event arrays to a list of event type identifiers.
+ *
+ * @param events API event array.
+ * @returns Ordered event type list.
+ */
+function eventTypes(events: EventTypeOnly[]): string[] {
+  return events.map((event) => event.event_type)
+}
+
+/**
+ * Verifies liveness and readiness endpoint behavior.
+ */
 describe('observability routes', () => {
   it('returns live status', async () => {
     const app = buildServer({
@@ -47,6 +65,9 @@ describe('observability routes', () => {
   })
 })
 
+/**
+ * Verifies factory API behavior for validation and production lifecycle.
+ */
 describe('factory jobs api', () => {
   it('validates finite queue payload', async () => {
     const app = buildServer({
@@ -99,9 +120,10 @@ describe('factory jobs api', () => {
     expect(catchUpResponse.json().job.target_cycles).toBe(3)
     expect(catchUpResponse.json().job.remaining_cycles).toBe(0)
     expect(catchUpResponse.json().job.completed_at).not.toBeNull()
-    expect(
-      catchUpResponse.json().events.map((event: { event_type: string }) => event.event_type),
-    ).toEqual(['inventory.changed', 'factory.production.completed'])
+    expect(eventTypes(catchUpResponse.json().events)).toEqual([
+      'inventory.changed',
+      'factory.production.completed',
+    ])
   })
 
   it('keeps infinite production running while capacity allows', async () => {

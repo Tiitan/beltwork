@@ -12,12 +12,27 @@ import {
   type FactoryJob,
 } from './factory-jobs/service.js'
 
+/**
+ * Optional server dependency overrides for tests and local harnesses.
+ */
 type BuildServerOptions = {
   checkReadiness?: () => Promise<void>
 }
 
+/**
+ * Creates and configures the Fastify API instance.
+ *
+ * @param options Optional dependency overrides, mainly used by tests.
+ * @returns Configured Fastify server instance.
+ */
 export function buildServer(options: BuildServerOptions = {}) {
+  /**
+   * Readiness checker dependency used by the readiness endpoint.
+   */
   const checkReadiness = options.checkReadiness ?? checkDatabaseConnection
+  /**
+   * In-memory factory job state keyed by factory id.
+   */
   const factoryJobs = new Map<string, FactoryJob>()
 
   const app = Fastify({
@@ -28,7 +43,12 @@ export function buildServer(options: BuildServerOptions = {}) {
     origin: true,
   })
 
-  app.get('/ready', async (_, reply) => {
+  /**
+   * Handles readiness checks by validating downstream dependencies.
+   *
+   * @returns Readiness status payload.
+   */
+  async function handleReady(_: unknown, reply: any) {
     try {
       await checkReadiness()
       return { status: 'ready' }
@@ -36,20 +56,35 @@ export function buildServer(options: BuildServerOptions = {}) {
       app.log.error({ error }, 'readiness check failed')
       return reply.code(503).send({ status: 'not_ready' })
     }
-  })
+  }
 
-  app.get('/live', async () => {
+  /**
+   * Handles liveness checks for process health.
+   *
+   * @returns Liveness status payload.
+   */
+  async function handleLive() {
     return { status: 'ok' }
-  })
+  }
 
-  app.post('/auth/login', async () => {
+  /**
+   * Temporary login endpoint for frontend integration.
+   *
+   * @returns Draft login response payload.
+   */
+  async function handleLogin() {
     return {
       ok: true,
       message: 'Draft login endpoint',
     }
-  })
+  }
 
-  app.post('/v1/factories/:id/select-recipe', async (request, reply) => {
+  /**
+   * Selects a recipe for a factory and starts a corresponding production job.
+   *
+   * @returns Job read model and emitted domain events.
+   */
+  async function handleSelectRecipe(request: any, reply: any) {
     const params = z.object({ id: z.string().min(1) }).safeParse(request.params)
     const body = selectRecipeInputSchema.safeParse(request.body)
 
@@ -80,9 +115,14 @@ export function buildServer(options: BuildServerOptions = {}) {
         },
       ],
     }
-  })
+  }
 
-  app.post('/v1/factories/:id/catch-up', async (request, reply) => {
+  /**
+   * Advances an existing factory job based on elapsed time and capacities.
+   *
+   * @returns Updated job read model and resulting events.
+   */
+  async function handleCatchUp(request: any, reply: any) {
     const params = z.object({ id: z.string().min(1) }).safeParse(request.params)
     const body = catchUpInputSchema.safeParse(request.body)
 
@@ -129,9 +169,14 @@ export function buildServer(options: BuildServerOptions = {}) {
     }
 
     return { job: toFactoryJobReadModel(next), events }
-  })
+  }
 
-  app.post('/v1/factories/:id/clear-recipe', async (request, reply) => {
+  /**
+   * Clears the selected recipe from an existing factory job.
+   *
+   * @returns Updated job read model.
+   */
+  async function handleClearRecipe(request: any, reply: any) {
     const params = z.object({ id: z.string().min(1) }).safeParse(request.params)
     if (!params.success) {
       return reply.code(400).send({ error: 'invalid_payload', details: params.error.issues })
@@ -146,9 +191,14 @@ export function buildServer(options: BuildServerOptions = {}) {
     factoryJobs.set(params.data.id, next)
 
     return { job: toFactoryJobReadModel(next) }
-  })
+  }
 
-  app.get('/v1/factories/:id', async (request, reply) => {
+  /**
+   * Fetches the current state for a specific factory job.
+   *
+   * @returns Factory job read model.
+   */
+  async function handleGetFactory(request: any, reply: any) {
     const params = z.object({ id: z.string().min(1) }).safeParse(request.params)
     if (!params.success) {
       return reply.code(400).send({ error: 'invalid_payload', details: params.error.issues })
@@ -160,7 +210,15 @@ export function buildServer(options: BuildServerOptions = {}) {
     }
 
     return { job: toFactoryJobReadModel(existing) }
-  })
+  }
+
+  app.get('/ready', handleReady)
+  app.get('/live', handleLive)
+  app.post('/auth/login', handleLogin)
+  app.post('/v1/factories/:id/select-recipe', handleSelectRecipe)
+  app.post('/v1/factories/:id/catch-up', handleCatchUp)
+  app.post('/v1/factories/:id/clear-recipe', handleClearRecipe)
+  app.get('/v1/factories/:id', handleGetFactory)
 
   return app
 }

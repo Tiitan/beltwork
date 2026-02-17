@@ -4,7 +4,12 @@ import { BrowserRouter } from 'react-router-dom'
 import './index.css'
 import App from './App.tsx'
 
-createRoot(document.getElementById('root')!).render(
+/**
+ * React root element used by the Vite HTML entrypoint.
+ */
+const rootElement = document.getElementById('root')
+
+createRoot(rootElement!).render(
   <StrictMode>
     <BrowserRouter>
       <App />

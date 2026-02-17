@@ -1,5 +1,8 @@
 import { z } from 'zod'
 
+/**
+ * Canonical factory job state used by API handlers and domain logic.
+ */
 export type FactoryJob = {
   id: string
   factoryId: string
@@ -11,6 +14,9 @@ export type FactoryJob = {
   completedAt: Date | null
 }
 
+/**
+ * Input schema for selecting a recipe on a factory.
+ */
 export const selectRecipeInputSchema = z
   .object({
     recipe_key: z.string().min(1),
@@ -27,8 +33,14 @@ export const selectRecipeInputSchema = z
     }
   })
 
+/**
+ * Parsed payload type for recipe selection.
+ */
 export type SelectRecipeInput = z.infer<typeof selectRecipeInputSchema>
 
+/**
+ * Input schema for advancing a factory job simulation.
+ */
 export const catchUpInputSchema = z.object({
   elapsed_seconds: z.number().int().nonnegative(),
   available_input_cycles: z.number().int().nonnegative(),
@@ -36,8 +48,19 @@ export const catchUpInputSchema = z.object({
   cycle_duration_seconds: z.number().int().positive().default(60),
 })
 
+/**
+ * Parsed payload type for factory catch-up simulation.
+ */
 export type CatchUpInput = z.infer<typeof catchUpInputSchema>
 
+/**
+ * Creates a new selected factory job from recipe selection input.
+ *
+ * @param factoryId Factory identifier.
+ * @param input Validated recipe selection payload.
+ * @param now Current timestamp reference.
+ * @returns Newly initialized factory job.
+ */
 export function createSelectedJob(
   factoryId: string,
   input: SelectRecipeInput,
@@ -55,6 +78,13 @@ export function createSelectedJob(
   }
 }
 
+/**
+ * Clears the active recipe and marks the job completed at the provided time.
+ *
+ * @param job Existing factory job state.
+ * @param now Timestamp used as completion time.
+ * @returns Updated job with cleared recipe.
+ */
 export function clearRecipe(job: FactoryJob, now: Date): FactoryJob {
   return {
     ...job,
@@ -64,6 +94,14 @@ export function clearRecipe(job: FactoryJob, now: Date): FactoryJob {
   }
 }
 
+/**
+ * Simulates production catch-up based on elapsed time and capacity constraints.
+ *
+ * @param job Existing factory job state.
+ * @param input Catch-up payload with elapsed and capacity data.
+ * @returns Updated factory job state after simulation.
+ * @remarks Finite jobs complete at target cycles, and blocked jobs auto-complete.
+ */
 export function catchUpFactoryJob(job: FactoryJob, input: CatchUpInput): FactoryJob {
   if (job.completedAt !== null) {
     return job
@@ -119,6 +157,12 @@ export function catchUpFactoryJob(job: FactoryJob, input: CatchUpInput): Factory
   }
 }
 
+/**
+ * Maps internal job state to the API response contract.
+ *
+ * @param job Domain factory job state.
+ * @returns Serialized read model returned by API handlers.
+ */
 export function toFactoryJobReadModel(job: FactoryJob) {
   const remainingCycles =
     job.targetCycles === null ? null : Math.max(job.targetCycles - job.cyclesCompleted, 0)

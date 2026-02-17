@@ -14,8 +14,14 @@ import {
   uuid,
 } from 'drizzle-orm/pg-core'
 
+/**
+ * Authentication mode enum used by player records.
+ */
 export const authTypeEnum = pgEnum('auth_type', ['guest', 'local'])
 
+/**
+ * Player accounts and profile credentials.
+ */
 export const players = pgTable(
   'players',
   {
@@ -34,6 +40,9 @@ export const players = pgTable(
   ],
 )
 
+/**
+ * Player-owned station root entity and coordinates.
+ */
 export const stations = pgTable(
   'stations',
   {
@@ -54,6 +63,9 @@ export const stations = pgTable(
   ],
 )
 
+/**
+ * Constructed buildings attached to a station.
+ */
 export const stationBuildings = pgTable(
   'station_buildings',
   {
@@ -75,6 +87,9 @@ export const stationBuildings = pgTable(
   ],
 )
 
+/**
+ * Material inventory balances stored per station.
+ */
 export const stationInventory = pgTable(
   'station_inventory',
   {
@@ -96,6 +111,9 @@ export const stationInventory = pgTable(
   ],
 )
 
+/**
+ * Persistent asteroid entities available for mining.
+ */
 export const asteroid = pgTable(
   'asteroid',
   {
@@ -117,6 +135,9 @@ export const asteroid = pgTable(
   ],
 )
 
+/**
+ * Active or completed mining operations from stations to asteroids.
+ */
 export const miningOperations = pgTable(
   'mining_operations',
   {
@@ -151,6 +172,9 @@ export const miningOperations = pgTable(
   ],
 )
 
+/**
+ * Factory production jobs for station factory buildings.
+ */
 export const factoryJobs = pgTable(
   'factory_jobs',
   {
@@ -186,6 +210,9 @@ export const factoryJobs = pgTable(
   ],
 )
 
+/**
+ * Outbox-style domain events for deferred processing.
+ */
 export const domainEvents = pgTable(
   'domain_events',
   {
@@ -205,6 +232,9 @@ export const domainEvents = pgTable(
   ],
 )
 
+/**
+ * Per-station locks used for simulation coordination.
+ */
 export const simulationLocks = pgTable('simulation_locks', {
   stationId: uuid('station_id')
     .primaryKey()
@@ -214,6 +244,9 @@ export const simulationLocks = pgTable('simulation_locks', {
   expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
 })
 
+/**
+ * Login sessions and lifecycle metadata for authenticated players.
+ */
 export const sessions = pgTable(
   'sessions',
   {
