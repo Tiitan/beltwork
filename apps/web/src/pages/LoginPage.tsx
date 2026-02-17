@@ -29,8 +29,8 @@ export function LoginPage({ onSignIn, onStartNow }: LoginPageProps) {
       <h1 className="text-3xl tracking-tight md:text-4xl">Log in</h1>
       <p className="mt-2 text-slate-300">Start as a guest or sign in with your account.</p>
 
-      <div className={`${cardClassName} mt-5 grid min-w-0 gap-4 p-4 md:grid-cols-3`}>
-        <form onSubmit={onSignIn} className="grid gap-2 md:col-span-2">
+      <div className={`${cardClassName} mt-5 flex justify-center p-4`}>
+        <form onSubmit={onSignIn} className="grid w-full max-w-xl gap-2">
           <label htmlFor="email" className={labelClassName}>
             Email
           </label>
@@ -59,12 +59,9 @@ export function LoginPage({ onSignIn, onStartNow }: LoginPageProps) {
         </form>
       </div>
 
-      <div className="mt-4 flex flex-wrap items-center gap-3">
-        <p>or</p>
-        <button type="button" onClick={onStartNow} className={buttonClassName}>
-          Start now
-        </button>
-      </div>
+      <button type="button" onClick={onStartNow} className={`${buttonClassName} mt-5 w-full`}>
+        Start now
+      </button>
     </section>
   )
 }

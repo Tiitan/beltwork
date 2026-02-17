@@ -39,7 +39,7 @@ describe('Login page', () => {
     renderAppAt('/')
 
     expect(window.location.pathname).toBe('/station')
-    expect(screen.getByRole('heading', { name: /station/i })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 1, name: /^station$/i })).toBeInTheDocument()
   })
 
   it('redirects login to station when a session exists', () => {
@@ -47,7 +47,7 @@ describe('Login page', () => {
     renderAppAt('/login')
 
     expect(window.location.pathname).toBe('/station')
-    expect(screen.getByRole('heading', { name: /station/i })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 1, name: /^station$/i })).toBeInTheDocument()
   })
 
   it('opens station draft after start now', () => {
@@ -58,12 +58,13 @@ describe('Login page', () => {
 
     expect(window.location.pathname).toBe('/station')
     expect(window.localStorage.getItem('beltwork_session_type')).toBe('guest')
-    expect(screen.getByRole('heading', { name: /station/i })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 1, name: /^station$/i })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: /summary/i })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: /inventory/i })).toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: /buildings/i })).toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: /mining/i })).toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: /factories/i })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /buildings/i })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /factories/i })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /map/i })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /account settings/i })).toBeInTheDocument()
   })
 
   it('redirects station to login without session', () => {
