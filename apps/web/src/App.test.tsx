@@ -1,13 +1,21 @@
 import { fireEvent, render, screen } from '@testing-library/react'
+import { BrowserRouter } from 'react-router-dom'
 import { vi } from 'vitest'
 import App from './App'
 
 describe('Login page', () => {
+  function renderAppAt(path: string) {
+    window.history.replaceState(null, '', path)
+    return render(
+      <BrowserRouter>
+        <App />
+      </BrowserRouter>,
+    )
+  }
+
   it('redirects root to login when no session exists', () => {
     window.localStorage.clear()
-    window.history.replaceState(null, '', '/')
-
-    render(<App />)
+    renderAppAt('/')
 
     expect(window.location.pathname).toBe('/login')
     expect(screen.getByRole('heading', { name: /log in/i })).toBeInTheDocument()
@@ -19,9 +27,7 @@ describe('Login page', () => {
 
   it('redirects root to station when a session exists', () => {
     window.localStorage.setItem('beltwork_session_type', 'guest')
-    window.history.replaceState(null, '', '/')
-
-    render(<App />)
+    renderAppAt('/')
 
     expect(window.location.pathname).toBe('/station')
     expect(screen.getByRole('heading', { name: /station/i })).toBeInTheDocument()
@@ -29,9 +35,7 @@ describe('Login page', () => {
 
   it('redirects login to station when a session exists', () => {
     window.localStorage.setItem('beltwork_session_type', 'guest')
-    window.history.replaceState(null, '', '/login')
-
-    render(<App />)
+    renderAppAt('/login')
 
     expect(window.location.pathname).toBe('/station')
     expect(screen.getByRole('heading', { name: /station/i })).toBeInTheDocument()
@@ -39,9 +43,7 @@ describe('Login page', () => {
 
   it('opens station draft after start now', () => {
     window.localStorage.clear()
-    window.history.replaceState(null, '', '/login')
-
-    render(<App />)
+    renderAppAt('/login')
 
     fireEvent.click(screen.getByRole('button', { name: /start now/i }))
 
@@ -57,9 +59,7 @@ describe('Login page', () => {
 
   it('redirects station to login without session', () => {
     window.localStorage.clear()
-    window.history.replaceState(null, '', '/station')
-
-    render(<App />)
+    renderAppAt('/station')
 
     expect(window.location.pathname).toBe('/login')
     expect(screen.getByRole('heading', { name: /log in/i })).toBeInTheDocument()
@@ -76,11 +76,9 @@ describe('Login page', () => {
         password: '',
       }),
     )
-    window.history.replaceState(null, '', '/station')
-
     const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true)
 
-    render(<App />)
+    renderAppAt('/station')
 
     fireEvent.click(screen.getByRole('button', { name: /disconnect/i }))
 

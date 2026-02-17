@@ -1,42 +1,26 @@
-import type { FormEvent } from 'react'
-
-type BuildingRow = {
-  type: string
-  level: number
-  status: 'idle' | 'upgrading'
-}
-
-type AsteroidRow = {
-  id: string
-  templateId: string
-  distanceFromStation: number
-  remainingUnits: number
-  isDepleted: boolean
-}
-
-type InventoryRow = {
-  resourceKey: string
-  amount: number
-}
+import type { SubmitEvent } from 'react'
+import type {
+  AsteroidRow,
+  BuildingRow,
+  InventoryRow,
+  SettingsForm,
+  SessionType,
+} from '../types/app'
 
 type StationPageProps = {
-  accountStatus: 'guest' | 'local'
+  accountStatus: SessionType
   buildings: BuildingRow[]
   discoveredAsteroids: AsteroidRow[]
   displayName: string
   inventory: InventoryRow[]
   lastUpdatedAt: Date
-  settingsForm: {
-    displayName: string
-    email: string
-    password: string
-  }
+  settingsForm: SettingsForm
   selectedAsteroid: AsteroidRow | undefined
   selectedAsteroidId: string
   selectedRecipeKey: string
   onDisconnect: () => void
   onRefreshStation: () => void
-  onSaveSettings: (event: FormEvent<HTMLFormElement>) => void
+  onSaveSettings: (event: SubmitEvent<HTMLFormElement>) => void
   onSettingsDisplayNameChange: (value: string) => void
   onSettingsEmailChange: (value: string) => void
   onSettingsPasswordChange: (value: string) => void

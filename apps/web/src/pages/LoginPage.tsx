@@ -1,7 +1,7 @@
-import type { FormEvent } from 'react'
+import type { SubmitEvent } from 'react'
 
 type LoginPageProps = {
-  onSignIn: (event: FormEvent<HTMLFormElement>) => void
+  onSignIn: (event: SubmitEvent<HTMLFormElement>) => void
   onStartNow: () => void
 }
 
