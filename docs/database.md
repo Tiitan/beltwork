@@ -17,6 +17,7 @@ This document is the human-readable reference for the PostgreSQL schema defined 
 
 - `guest`: temporary/anonymous account created by `Start now`
 - `local`: account with email/password credentials
+- `google`: account linked/authenticated through Google identity
 
 ## Tables
 
@@ -35,9 +36,33 @@ Key constraints:
 | `display_name`  | `text`         | Player-facing name (renameable).                     |
 | `email`         | `text \| null` | Login email for local accounts; nullable for guests. |
 | `password_hash` | `text \| null` | Password hash for local accounts; null for guests.   |
-| `auth_type`     | `auth_type`    | Identity mode (`guest` or `local`).                  |
+| `auth_type`     | `auth_type`    | Identity mode (`guest`, `local`, or `google`).       |
 | `created_at`    | `timestamptz`  | Creation time (UTC).                                 |
 | `updated_at`    | `timestamptz`  | Last profile update time (UTC).                      |
+
+Note: `players.email` is not the sole OAuth linkage key. External identities are tracked in
+`player_identities` using provider stable user IDs (for Google, `sub`).
+
+### `player_identities`
+
+Purpose: Mapping between internal players and external identity providers.
+
+Key constraints:
+
+- Primary key: `id`
+- Foreign key: `player_id -> players.id`
+- Unique provider identity: `(provider, provider_user_id)`
+- Lookup index: `player_id`
+
+| Column             | Type           | Description                                 |
+| ------------------ | -------------- | ------------------------------------------- |
+| `id`               | `uuid`         | Identity mapping identifier.                |
+| `player_id`        | `uuid`         | Linked player id.                           |
+| `provider`         | `text`         | Identity provider key (currently `google`). |
+| `provider_user_id` | `text`         | Stable provider user id (Google `sub`).     |
+| `email`            | `text \| null` | Last known provider email.                  |
+| `created_at`       | `timestamptz`  | Mapping creation timestamp.                 |
+| `updated_at`       | `timestamptz`  | Mapping update timestamp.                   |
 
 ### `stations`
 

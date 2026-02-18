@@ -17,7 +17,7 @@ import {
 /**
  * Authentication mode enum used by player records.
  */
-export const authTypeEnum = pgEnum('auth_type', ['guest', 'local'])
+export const authTypeEnum = pgEnum('auth_type', ['guest', 'local', 'google'])
 
 /**
  * Player accounts and profile credentials.
@@ -264,5 +264,30 @@ export const sessions = pgTable(
     uniqueIndex('sessions_session_token_unique_idx').on(table.sessionToken),
     index('sessions_player_id_idx').on(table.playerId),
     index('sessions_expires_revoked_idx').on(table.expiresAt, table.revokedAt),
+  ],
+)
+
+/**
+ * External identity provider mappings linked to players.
+ */
+export const playerIdentities = pgTable(
+  'player_identities',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    playerId: uuid('player_id')
+      .references(() => players.id, { onDelete: 'cascade' })
+      .notNull(),
+    provider: text('provider').notNull(),
+    providerUserId: text('provider_user_id').notNull(),
+    email: text('email'),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex('player_identities_provider_user_unique_idx').on(
+      table.provider,
+      table.providerUserId,
+    ),
+    index('player_identities_player_id_idx').on(table.playerId),
   ],
 )

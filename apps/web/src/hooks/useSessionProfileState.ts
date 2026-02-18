@@ -1,212 +1,232 @@
-import { type SubmitEvent, useState } from 'react'
-import type { Profile, SessionType, SettingsForm } from '../types/app'
+import { type SubmitEvent, useEffect, useState } from 'react'
+import {
+  bootstrapSession,
+  linkGoogleAccount,
+  logoutSession,
+  saveAccountSettings,
+  signInWithEmailPassword,
+  signInWithGoogle,
+  startNowAsGuest as startNowAsGuestApi,
+  type AuthProfile,
+} from '../features/auth/api'
+import type { Profile, SettingsForm } from '../types/app'
 
-/**
- * Local storage key for persisted session type.
- */
-const SESSION_STORAGE_KEY = 'beltwork_session_type'
-/**
- * Local storage key for persisted profile payload.
- */
-const PROFILE_STORAGE_KEY = 'beltwork_profile'
-
-/**
- * Builds the default guest profile used when no profile exists.
- */
 function getDefaultGuestProfile(): Profile {
   return {
+    id: '',
     authType: 'guest',
     displayName: 'Calm Prospector 0421',
     email: '',
-    password: '',
+    googleLinked: false,
+    googleLinkedEmail: '',
   }
 }
 
-/**
- * Reads and validates the persisted session type from local storage.
- */
-function readSessionType(): SessionType | null {
-  const value = window.localStorage.getItem(SESSION_STORAGE_KEY)
-  if (value === 'guest' || value === 'local') {
-    return value
-  }
-
-  return null
-}
-
-/**
- * Returns whether a valid persisted session currently exists.
- *
- * @returns `true` when local storage contains a supported session type.
- */
-export function hasStoredSession(): boolean {
-  return readSessionType() !== null
-}
-
-/**
- * Persists the current session type.
- */
-function writeSession(sessionType: SessionType) {
-  window.localStorage.setItem(SESSION_STORAGE_KEY, sessionType)
-}
-
-/**
- * Reads and normalizes the persisted profile payload.
- */
-function readProfile(): Profile {
-  const raw = window.localStorage.getItem(PROFILE_STORAGE_KEY)
-  if (!raw) {
-    return getDefaultGuestProfile()
-  }
-
-  try {
-    const parsed = JSON.parse(raw) as Partial<Profile>
-    return {
-      authType: parsed.authType === 'local' ? 'local' : 'guest',
-      displayName:
-        typeof parsed.displayName === 'string' && parsed.displayName.trim().length > 0
-          ? parsed.displayName
-          : getDefaultGuestProfile().displayName,
-      email: typeof parsed.email === 'string' ? parsed.email : '',
-      password: typeof parsed.password === 'string' ? parsed.password : '',
-    }
-  } catch {
-    return getDefaultGuestProfile()
+function toProfile(authProfile: AuthProfile): Profile {
+  return {
+    id: authProfile.id,
+    authType: authProfile.auth_type,
+    displayName: authProfile.display_name,
+    email: authProfile.email,
+    googleLinked: authProfile.google_linked,
+    googleLinkedEmail: authProfile.google_linked_email,
   }
 }
 
-/**
- * Persists the full profile object.
- */
-function writeProfile(profile: Profile) {
-  window.localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(profile))
-}
-
-/**
- * Manages profile/session state and account actions for the web app.
- *
- * @returns Profile state, settings form state, and auth/session action handlers.
- */
 export function useSessionProfileState() {
-  const [profile, setProfile] = useState<Profile>(() => readProfile())
-  const [settingsForm, setSettingsForm] = useState<SettingsForm>(() => {
-    const initialProfile = readProfile()
-    return {
-      displayName: initialProfile.displayName,
-      email: initialProfile.email,
-      password: initialProfile.password,
-    }
+  const [hasSession, setHasSession] = useState(false)
+  const [isBootstrapping, setIsBootstrapping] = useState(true)
+  const [profile, setProfile] = useState<Profile>(getDefaultGuestProfile)
+  const [settingsForm, setSettingsForm] = useState<SettingsForm>({
+    displayName: '',
+    email: '',
+    password: '',
   })
   const [lastUpdatedAt, setLastUpdatedAt] = useState(() => new Date())
 
-  /**
-   * Starts a fresh guest session and resets profile-bound form values.
-   */
-  function startNowAsGuest() {
-    const guestProfile = getDefaultGuestProfile()
-    writeProfile(guestProfile)
-    setProfile(guestProfile)
-    setSettingsForm({
-      displayName: guestProfile.displayName,
-      email: guestProfile.email,
-      password: guestProfile.password,
-    })
-    writeSession('guest')
-    setLastUpdatedAt(new Date())
-  }
+  useEffect(() => {
+    let isMounted = true
 
-  /**
-   * Converts the current profile to a local account session.
-   *
-   * @param event Form submit event from login submission.
-   */
-  function signIn(event: SubmitEvent<HTMLFormElement>) {
-    event.preventDefault()
-    const nextProfile: Profile = {
-      ...profile,
-      authType: 'local',
+    async function loadSession() {
+      try {
+        const response = await bootstrapSession()
+        if (!isMounted) {
+          return
+        }
+
+        if (!response.authenticated) {
+          setHasSession(false)
+          setProfile(getDefaultGuestProfile())
+          setSettingsForm({
+            displayName: '',
+            email: '',
+            password: '',
+          })
+          return
+        }
+
+        const nextProfile = toProfile(response.profile)
+        setHasSession(true)
+        setProfile(nextProfile)
+        setSettingsForm({
+          displayName: nextProfile.displayName,
+          email: nextProfile.email,
+          password: '',
+        })
+      } finally {
+        if (isMounted) {
+          setIsBootstrapping(false)
+        }
+      }
     }
-    writeProfile(nextProfile)
+
+    void loadSession()
+
+    return () => {
+      isMounted = false
+    }
+  }, [])
+
+  async function startNowAsGuest(): Promise<boolean> {
+    const response = await startNowAsGuestApi()
+    const nextProfile = toProfile(response.profile)
+
+    setHasSession(true)
     setProfile(nextProfile)
-    writeSession('local')
+    setSettingsForm({
+      displayName: nextProfile.displayName,
+      email: nextProfile.email,
+      password: '',
+    })
     setLastUpdatedAt(new Date())
+
+    return true
   }
 
-  /**
-   * Saves account settings and upgrades auth type when credentials are provided.
-   *
-   * @param event Form submit event from settings form submission.
-   */
-  function saveSettings(event: SubmitEvent<HTMLFormElement>) {
+  async function signIn(event: SubmitEvent<HTMLFormElement>): Promise<boolean> {
+    event.preventDefault()
+
+    const formData = new FormData(event.currentTarget)
+    const email = String(formData.get('email') ?? '').trim()
+    const password = String(formData.get('password') ?? '')
+
+    if (email.length === 0 || password.length === 0) {
+      return false
+    }
+
+    const response = await signInWithEmailPassword(email, password)
+    const nextProfile = toProfile(response.profile)
+
+    setHasSession(true)
+    setProfile(nextProfile)
+    setSettingsForm({
+      displayName: nextProfile.displayName,
+      email: nextProfile.email,
+      password: '',
+    })
+    setLastUpdatedAt(new Date())
+
+    return true
+  }
+
+  async function signInWithGoogleToken(idToken: string): Promise<boolean> {
+    const response = await signInWithGoogle(idToken)
+    const nextProfile = toProfile(response.profile)
+
+    setHasSession(true)
+    setProfile(nextProfile)
+    setSettingsForm({
+      displayName: nextProfile.displayName,
+      email: nextProfile.email,
+      password: '',
+    })
+    setLastUpdatedAt(new Date())
+
+    return true
+  }
+
+  async function saveSettings(event: SubmitEvent<HTMLFormElement>): Promise<boolean> {
     event.preventDefault()
 
     const normalizedDisplayName = settingsForm.displayName.trim()
     const normalizedEmail = settingsForm.email.trim()
     const normalizedPassword = settingsForm.password
 
-    const activatedAccount = normalizedEmail.length > 0 && normalizedPassword.length > 0
+    const response = await saveAccountSettings({
+      display_name: normalizedDisplayName.length > 0 ? normalizedDisplayName : profile.displayName,
+      ...(normalizedEmail.length > 0 && normalizedPassword.length > 0
+        ? {
+            email: normalizedEmail,
+            password: normalizedPassword,
+          }
+        : {}),
+    })
 
-    const nextProfile: Profile = {
-      authType: activatedAccount ? 'local' : profile.authType,
-      displayName: normalizedDisplayName.length > 0 ? normalizedDisplayName : profile.displayName,
-      email: normalizedEmail,
-      password: normalizedPassword,
-    }
-
+    const nextProfile = toProfile(response.profile)
     setProfile(nextProfile)
-    writeProfile(nextProfile)
+    setSettingsForm({
+      displayName: nextProfile.displayName,
+      email: nextProfile.email,
+      password: '',
+    })
+    setLastUpdatedAt(new Date())
 
-    if (activatedAccount) {
-      writeSession('local')
-    }
+    return true
   }
 
-  /**
-   * Clears the active session and optionally resets guest profile data.
-   *
-   * @returns `true` when disconnection is completed, `false` when cancelled.
-   */
-  function disconnect(): boolean {
-    const sessionType = readSessionType()
-
-    if (sessionType === 'guest') {
+  async function disconnect(): Promise<boolean> {
+    if (profile.authType === 'guest') {
       const confirmed = window.confirm(
         'You are using a guest session. Disconnecting now will delete this guest progress. Activate your account with email and password before disconnecting if you want to keep your save. Disconnect anyway?',
       )
       if (!confirmed) {
         return false
       }
-
-      window.localStorage.removeItem(PROFILE_STORAGE_KEY)
-      const guestProfile = getDefaultGuestProfile()
-      setProfile(guestProfile)
-      setSettingsForm({
-        displayName: guestProfile.displayName,
-        email: guestProfile.email,
-        password: guestProfile.password,
-      })
     }
 
-    window.localStorage.removeItem(SESSION_STORAGE_KEY)
+    await logoutSession()
+
+    setHasSession(false)
+    setProfile(getDefaultGuestProfile())
+    setSettingsForm({
+      displayName: '',
+      email: '',
+      password: '',
+    })
+
     return true
   }
 
-  /**
-   * Updates the station freshness timestamp.
-   */
+  async function linkCurrentAccountWithGoogle(idToken: string): Promise<boolean> {
+    const response = await linkGoogleAccount(idToken)
+    const nextProfile = toProfile(response.profile)
+    setProfile(nextProfile)
+    setSettingsForm({
+      displayName: nextProfile.displayName,
+      email: nextProfile.email,
+      password: '',
+    })
+    setLastUpdatedAt(new Date())
+    return true
+  }
+
   function refreshLastUpdatedAt() {
     setLastUpdatedAt(new Date())
   }
 
   return {
+    hasSession,
+    isBootstrapping,
     profile,
     settingsForm,
     lastUpdatedAt,
     setSettingsForm,
     startNowAsGuest,
     signIn,
+    signInWithGoogleToken,
     saveSettings,
     disconnect,
+    linkCurrentAccountWithGoogle,
     refreshLastUpdatedAt,
   }
 }

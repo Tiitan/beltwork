@@ -1,4 +1,5 @@
-import type { SubmitEvent } from 'react'
+import { useCallback, useState, type SubmitEvent } from 'react'
+import { GoogleSignInButton } from '../features/auth/GoogleSignInButton'
 
 /**
  * Input contract for the login page actions.
@@ -6,6 +7,7 @@ import type { SubmitEvent } from 'react'
 type LoginPageProps = {
   onSignIn: (event: SubmitEvent<HTMLFormElement>) => void
   onStartNow: () => void
+  onGoogleSignIn: (idToken: string) => void
 }
 
 /**
@@ -14,7 +16,9 @@ type LoginPageProps = {
  * @param props Login event handlers for sign-in and guest start.
  * @returns Login page UI.
  */
-export function LoginPage({ onSignIn, onStartNow }: LoginPageProps) {
+export function LoginPage({ onSignIn, onStartNow, onGoogleSignIn }: LoginPageProps) {
+  const [googleError, setGoogleError] = useState<string | null>(null)
+
   const cardClassName =
     'overflow-hidden rounded-2xl border border-slate-300/30 bg-slate-900/45 shadow-xl backdrop-blur-md'
   const labelClassName = 'text-sm text-slate-300'
@@ -22,6 +26,14 @@ export function LoginPage({ onSignIn, onStartNow }: LoginPageProps) {
     'mb-1 rounded-md border border-slate-400/45 bg-slate-950/60 px-3 py-2 text-slate-100'
   const buttonClassName =
     'cursor-pointer rounded-md border border-teal-300/70 bg-gradient-to-br from-teal-500 to-cyan-700 px-3 py-2 text-teal-50 transition hover:brightness-110'
+
+  const handleGoogleError = useCallback((message: string) => {
+    if (message === 'missing_google_client_id') {
+      return
+    }
+
+    setGoogleError('Google sign-in is currently unavailable. Please try again.')
+  }, [])
 
   return (
     <section aria-label="Login page" className="mx-auto w-full max-w-3xl pt-8 md:pt-16">
@@ -56,6 +68,15 @@ export function LoginPage({ onSignIn, onStartNow }: LoginPageProps) {
           <button type="submit" className={buttonClassName}>
             Sign in
           </button>
+
+          <div className="mt-1 flex justify-center">
+            <GoogleSignInButton
+              mode="login"
+              onSuccess={onGoogleSignIn}
+              onError={handleGoogleError}
+            />
+          </div>
+          {googleError ? <p className="text-sm text-rose-300">{googleError}</p> : null}
         </form>
       </div>
 

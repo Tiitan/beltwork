@@ -82,6 +82,15 @@ No component runs a global tick.
 - Identity links to same `player_id`; no progress migration required.
 - Player can rename display name.
 
+### Google Sign-In and Linking
+- Login page supports Google ID token sign-in (`POST /v1/auth/google`).
+- Account resolution order:
+  - existing provider identity match (`player_identities.provider`, `provider_user_id`)
+  - fallback email auto-link to existing `players.email`
+  - otherwise create new player with `auth_type = google`
+- Logged-in accounts can link Google in settings (`POST /v1/settings/account/google-link`).
+- Google linking uses provider stable ID (`sub`), not only email.
+
 ## 4. Event-Driven Domain Model
 
 ### Core Domain Entities
@@ -114,7 +123,13 @@ No component runs a global tick.
 - `display_name`
 - `email` (nullable, unique when present)
 - `password_hash` (nullable for guest players)
-- `auth_type` (`guest` | `local`)
+- `auth_type` (`guest` | `local` | `google`)
+
+`PlayerIdentity` fields for Google linkage:
+- `player_id`
+- `provider` (currently `google`)
+- `provider_user_id` (Google `sub`)
+- `email` (last known provider email)
 
 ### Event Types (v1)
 - `building.upgrade.started`
@@ -204,12 +219,18 @@ Spawn policy contract for v1:
   - creates guest player + station
   - sets cookie
   - returns player profile + minimal station summary
+- `POST /v1/auth/google`
+  - verifies Google ID token
+  - resolves/creates player and links provider identity
+  - sets cookie and returns profile
 
 ### Settings
 - `PATCH /v1/settings/profile`
   - rename display name
 - `POST /v1/settings/account`
   - set email/password to upgrade guest to local account
+- `POST /v1/settings/account/google-link`
+  - links verified Google identity to current account
 
 ### Station
 - `GET /v1/station`

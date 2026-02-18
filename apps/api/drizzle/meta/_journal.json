@@ -8,6 +8,13 @@
       "when": 1771078337950,
       "tag": "0000_fair_shinobi_shaw",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1771429200000,
+      "tag": "0001_vivid_google_identity",
+      "breakpoints": true
     }
   ]
 }

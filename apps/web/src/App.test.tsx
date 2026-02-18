@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { BrowserRouter } from 'react-router-dom'
 import { vi } from 'vitest'
 import App from './App'
@@ -22,42 +22,128 @@ describe('Login page', () => {
     )
   }
 
-  it('redirects root to login when no session exists', () => {
-    window.localStorage.clear()
+  let sessionExists = false
+
+  beforeEach(() => {
+    sessionExists = false
+
+    vi.spyOn(window, 'fetch').mockImplementation(async (input, init) => {
+      const url = String(input)
+
+      if (url.endsWith('/v1/session/bootstrap')) {
+        if (sessionExists) {
+          return {
+            ok: true,
+            json: async () => ({
+              authenticated: true,
+              profile: {
+                id: 'p-1',
+                auth_type: 'guest',
+                display_name: 'Calm Prospector 0421',
+                email: '',
+                google_linked: false,
+                google_linked_email: '',
+              },
+            }),
+          } as Response
+        }
+
+        return {
+          ok: true,
+          json: async () => ({ authenticated: false }),
+        } as Response
+      }
+
+      if (url.endsWith('/v1/session/start-now')) {
+        sessionExists = true
+        return {
+          ok: true,
+          json: async () => ({
+            authenticated: true,
+            profile: {
+              id: 'p-guest',
+              auth_type: 'guest',
+              display_name: 'Calm Prospector 0421',
+              email: '',
+              google_linked: false,
+              google_linked_email: '',
+            },
+          }),
+        } as Response
+      }
+
+      if (url.endsWith('/v1/session/logout')) {
+        sessionExists = false
+        return {
+          ok: true,
+          json: async () => ({ ok: true }),
+        } as Response
+      }
+
+      if (url.endsWith('/v1/auth/login') && init?.method === 'POST') {
+        sessionExists = true
+        return {
+          ok: true,
+          json: async () => ({
+            authenticated: true,
+            profile: {
+              id: 'p-local',
+              auth_type: 'local',
+              display_name: 'Local Pilot',
+              email: 'pilot@example.com',
+              google_linked: false,
+              google_linked_email: '',
+            },
+          }),
+        } as Response
+      }
+
+      return {
+        ok: false,
+        json: async () => ({}),
+      } as Response
+    })
+  })
+
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it('redirects root to login when no session exists', async () => {
     renderAppAt('/')
 
-    expect(window.location.pathname).toBe('/login')
+    await waitFor(() => expect(window.location.pathname).toBe('/login'))
     expect(screen.getByRole('heading', { name: /log in/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /sign in/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /start now/i })).toBeInTheDocument()
     expect(screen.getByLabelText(/email/i)).toBeInTheDocument()
     expect(screen.getByLabelText(/password/i)).toBeInTheDocument()
+    expect(screen.getByLabelText(/google sign in/i)).toBeInTheDocument()
   })
 
-  it('redirects root to station when a session exists', () => {
-    window.localStorage.setItem('beltwork_session_type', 'guest')
+  it('redirects root to station when a session exists', async () => {
+    sessionExists = true
     renderAppAt('/')
 
-    expect(window.location.pathname).toBe('/station')
+    await waitFor(() => expect(window.location.pathname).toBe('/station'))
     expect(screen.getByRole('heading', { level: 1, name: /^station$/i })).toBeInTheDocument()
   })
 
-  it('redirects login to station when a session exists', () => {
-    window.localStorage.setItem('beltwork_session_type', 'guest')
+  it('redirects login to station when a session exists', async () => {
+    sessionExists = true
     renderAppAt('/login')
 
-    expect(window.location.pathname).toBe('/station')
+    await waitFor(() => expect(window.location.pathname).toBe('/station'))
     expect(screen.getByRole('heading', { level: 1, name: /^station$/i })).toBeInTheDocument()
   })
 
-  it('opens station draft after start now', () => {
-    window.localStorage.clear()
+  it('opens station draft after start now', async () => {
     renderAppAt('/login')
 
+    await waitFor(() => expect(window.location.pathname).toBe('/login'))
     fireEvent.click(screen.getByRole('button', { name: /start now/i }))
 
-    expect(window.location.pathname).toBe('/station')
-    expect(window.localStorage.getItem('beltwork_session_type')).toBe('guest')
+    await waitFor(() => expect(window.location.pathname).toBe('/station'))
     expect(screen.getByRole('heading', { level: 1, name: /^station$/i })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: /summary/i })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: /inventory/i })).toBeInTheDocument()
@@ -67,35 +153,24 @@ describe('Login page', () => {
     expect(screen.getByRole('link', { name: /account settings/i })).toBeInTheDocument()
   })
 
-  it('redirects station to login without session', () => {
-    window.localStorage.clear()
+  it('redirects station to login without session', async () => {
     renderAppAt('/station')
 
-    expect(window.location.pathname).toBe('/login')
+    await waitFor(() => expect(window.location.pathname).toBe('/login'))
     expect(screen.getByRole('heading', { name: /log in/i })).toBeInTheDocument()
   })
 
-  it('warns and deletes guest profile on disconnect', () => {
-    window.localStorage.setItem('beltwork_session_type', 'guest')
-    window.localStorage.setItem(
-      'beltwork_profile',
-      JSON.stringify({
-        authType: 'guest',
-        displayName: 'Calm Prospector 0421',
-        email: '',
-        password: '',
-      }),
-    )
+  it('warns and disconnects guest on logout', async () => {
+    sessionExists = true
     const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true)
 
     renderAppAt('/station')
 
+    await waitFor(() => expect(window.location.pathname).toBe('/station'))
     fireEvent.click(screen.getByRole('button', { name: /disconnect/i }))
 
+    await waitFor(() => expect(window.location.pathname).toBe('/login'))
     expect(confirmSpy).toHaveBeenCalled()
-    expect(window.localStorage.getItem('beltwork_session_type')).toBeNull()
-    expect(window.localStorage.getItem('beltwork_profile')).toBeNull()
-    expect(window.location.pathname).toBe('/login')
     expect(screen.getByRole('heading', { name: /log in/i })).toBeInTheDocument()
 
     confirmSpy.mockRestore()

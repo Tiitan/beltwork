@@ -1,3 +1,5 @@
+import { useCallback, useState } from 'react'
+import { GoogleSignInButton } from '../../features/auth/GoogleSignInButton'
 import { useAuthSession } from '../../features/auth/useAuthSession'
 import {
   stationButtonClassName,
@@ -9,12 +11,40 @@ import {
 
 export function AccountSettingsPage() {
   const {
+    linkCurrentAccountWithGoogle,
+    profile,
     saveSettings,
     setSettingsDisplayName,
     setSettingsEmail,
     setSettingsPassword,
     settingsForm,
   } = useAuthSession()
+  const [googleMessage, setGoogleMessage] = useState<string | null>(null)
+
+  const handleGoogleLink = useCallback(
+    async (idToken: string) => {
+      try {
+        await linkCurrentAccountWithGoogle(idToken)
+        setGoogleMessage('Google account linked successfully.')
+      } catch (error) {
+        if (error instanceof Error && error.message === 'google_identity_in_use') {
+          setGoogleMessage('This Google account is already linked to another profile.')
+          return
+        }
+
+        setGoogleMessage('Failed to link Google account. Please try again.')
+      }
+    },
+    [linkCurrentAccountWithGoogle],
+  )
+
+  const handleGoogleLinkError = useCallback((message: string) => {
+    if (message === 'missing_google_client_id') {
+      return
+    }
+
+    setGoogleMessage('Failed to initialize Google sign-in.')
+  }, [])
 
   return (
     <section aria-label="Account settings page" className={stationSectionWrapperClassName}>
@@ -58,6 +88,24 @@ export function AccountSettingsPage() {
           Save settings
         </button>
       </form>
+
+      <div className="mt-4 grid gap-2">
+        {profile.googleLinked ? (
+          <p className={stationLabelClassName}>
+            Google Sign-In linked to: "{profile.googleLinkedEmail}"
+          </p>
+        ) : (
+          <>
+            <p className={stationLabelClassName}>Google Sign-In (not linked)</p>
+            <GoogleSignInButton
+              mode="link"
+              onSuccess={handleGoogleLink}
+              onError={handleGoogleLinkError}
+            />
+          </>
+        )}
+        {googleMessage ? <p className="text-sm text-slate-300">{googleMessage}</p> : null}
+      </div>
     </section>
   )
 }

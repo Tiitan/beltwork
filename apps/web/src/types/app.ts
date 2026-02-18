@@ -29,16 +29,18 @@ export type AsteroidRow = {
 /**
  * Supported account session modes.
  */
-export type SessionType = 'guest' | 'local'
+export type SessionType = 'guest' | 'local' | 'google'
 
 /**
  * Persisted player profile and auth payload.
  */
 export type Profile = {
+  id: string
   authType: SessionType
   displayName: string
   email: string
-  password: string
+  googleLinked: boolean
+  googleLinkedEmail: string
 }
 
 /**

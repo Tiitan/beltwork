@@ -65,6 +65,28 @@ describe('observability routes', () => {
   })
 })
 
+describe('google auth api', () => {
+  it('returns invalid_google_token when verifier rejects token', async () => {
+    const app = buildServer({
+      checkReadiness: async () => {},
+      verifyGoogleIdToken: async () => {
+        throw new Error('bad token')
+      },
+    })
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/v1/auth/google',
+      payload: {
+        id_token: 'invalid-token',
+      },
+    })
+
+    expect(response.statusCode).toBe(401)
+    expect(response.json()).toEqual({ error: 'invalid_google_token' })
+  })
+})
+
 /**
  * Verifies factory API behavior for validation and production lifecycle.
  */

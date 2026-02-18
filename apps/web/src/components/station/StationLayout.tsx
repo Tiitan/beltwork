@@ -16,8 +16,8 @@ export function StationLayout({ children }: StationLayoutProps) {
     'rounded-md border border-slate-300/20 px-3 py-2 text-sm text-slate-200 transition hover:bg-slate-700/35 hover:text-sky-100'
   const activeNavLinkClassName = 'border-sky-300/40 bg-sky-500/20 text-sky-100'
 
-  function handleDisconnect() {
-    const didDisconnect = disconnect()
+  async function handleDisconnect() {
+    const didDisconnect = await disconnect()
     if (didDisconnect) {
       navigate('/login')
     }
@@ -42,7 +42,7 @@ export function StationLayout({ children }: StationLayoutProps) {
             <h1 className={stationSectionTitleClassName}>Station</h1>
             <div className="grid gap-1 text-sm text-slate-300">
               <p>Commander: {profile.displayName}</p>
-              <p>Account: {profile.authType === 'local' ? 'activated' : 'guest'}</p>
+              <p>Account: {profile.authType === 'guest' ? 'guest' : 'activated'}</p>
               <p>Last updated at: {lastUpdatedAt.toISOString()}</p>
             </div>
           </section>

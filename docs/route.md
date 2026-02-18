@@ -16,11 +16,18 @@ This document summarizes Beltwork API routes using:
 
 ## Observability and Auth
 
-| Method | Path          | Status              | Purpose                        | Validation | Storage/Domain                                           |
-| ------ | ------------- | ------------------- | ------------------------------ | ---------- | -------------------------------------------------------- |
-| `GET`  | `/ready`      | Implemented         | Readiness probe with DB check. | None       | Calls DB connectivity check (`checkDatabaseConnection`). |
-| `GET`  | `/live`       | Implemented         | Simple liveness probe.         | None       | No DB write.                                             |
-| `POST` | `/auth/login` | Implemented (draft) | Placeholder login endpoint.    | None       | Returns static draft payload.                            |
+| Method | Path                               | Status      | Purpose                                              | Validation                             | Storage/Domain                                                         |
+| ------ | ---------------------------------- | ----------- | ---------------------------------------------------- | -------------------------------------- | ---------------------------------------------------------------------- |
+| `GET`  | `/ready`                           | Implemented | Readiness probe with DB check.                       | None                                   | Calls DB connectivity check (`checkDatabaseConnection`).               |
+| `GET`  | `/live`                            | Implemented | Simple liveness probe.                               | None                                   | No DB write.                                                           |
+| `GET`  | `/v1/session/bootstrap`            | Implemented | Resolve signed-cookie session and return auth state. | Cookie session token + DB lookup       | Reads `sessions`, `players`; updates `sessions.last_seen_at`.          |
+| `POST` | `/v1/session/start-now`            | Implemented | Create guest account and session.                    | None                                   | Inserts into `players` and `sessions`, sets signed cookie.             |
+| `POST` | `/v1/auth/login`                   | Implemented | Email/password login and session issue.              | `{ email, password }`                  | Reads/updates `players`, inserts `sessions`, sets signed cookie.       |
+| `POST` | `/auth/login`                      | Implemented | Alias of `/v1/auth/login`.                           | `{ email, password }`                  | Same as `/v1/auth/login`.                                              |
+| `POST` | `/v1/auth/google`                  | Implemented | Google ID token sign-in.                             | `{ id_token }` + token verification    | Reads/writes `players`, `player_identities`, `sessions`.               |
+| `POST` | `/v1/settings/account`             | Implemented | Save profile settings / local credential upgrade.    | `{ display_name?, email?, password? }` | Updates `players`; enforces unique email.                              |
+| `POST` | `/v1/settings/account/google-link` | Implemented | Link Google identity to current session account.     | `{ id_token }` + authenticated session | Reads/writes `player_identities`, updates `players` for guest upgrade. |
+| `POST` | `/v1/session/logout`               | Implemented | Revoke session and clear cookie.                     | Cookie session token                   | Updates `sessions`; deletes guest-only player on disconnect.           |
 
 ## Factory Jobs
 
@@ -57,17 +64,20 @@ These routes are specified in `architecture.md` and aligned with the game loop f
 
 ## Session and Identity
 
-| Method | Path                    | Status       | Game-loop Intent                        | Main DB Tables                    |
-| ------ | ----------------------- | ------------ | --------------------------------------- | --------------------------------- |
-| `GET`  | `/v1/session/bootstrap` | Planned (v1) | Restore player and station on app open. | `sessions`, `players`, `stations` |
-| `POST` | `/v1/session/start-now` | Planned (v1) | Guest-first instant start flow.         | `players`, `stations`, `sessions` |
+| Method | Path                    | Status      | Game-loop Intent                        | Main DB Tables                             |
+| ------ | ----------------------- | ----------- | --------------------------------------- | ------------------------------------------ |
+| `GET`  | `/v1/session/bootstrap` | Implemented | Restore player and station on app open. | `sessions`, `players`, `stations`          |
+| `POST` | `/v1/session/start-now` | Implemented | Guest-first instant start flow.         | `players`, `stations`, `sessions`          |
+| `POST` | `/v1/auth/login`        | Implemented | Local credentials login.                | `players`, `sessions`                      |
+| `POST` | `/v1/auth/google`       | Implemented | Google token login with auto-linking.   | `players`, `player_identities`, `sessions` |
 
 ## Settings
 
-| Method  | Path                   | Status       | Game-loop Intent                            | Main DB Tables |
-| ------- | ---------------------- | ------------ | ------------------------------------------- | -------------- |
-| `PATCH` | `/v1/settings/profile` | Planned (v1) | Rename player profile identity.             | `players`      |
-| `POST`  | `/v1/settings/account` | Planned (v1) | Upgrade guest account to local credentials. | `players`      |
+| Method  | Path                               | Status       | Game-loop Intent                            | Main DB Tables                 |
+| ------- | ---------------------------------- | ------------ | ------------------------------------------- | ------------------------------ |
+| `PATCH` | `/v1/settings/profile`             | Planned (v1) | Rename player profile identity.             | `players`                      |
+| `POST`  | `/v1/settings/account`             | Implemented  | Upgrade guest account to local credentials. | `players`                      |
+| `POST`  | `/v1/settings/account/google-link` | Implemented  | Link Google identity to current account.    | `players`, `player_identities` |
 
 ## Station and Map
 
@@ -110,3 +120,66 @@ Relevant event types for routes:
 - `factory.recipe.selected`
 - `factory.production.completed`
 - `inventory.changed`
+
+## Google Auth Examples
+
+`POST /v1/auth/google`
+
+Request:
+
+```json
+{
+  "id_token": "<google-id-token>"
+}
+```
+
+Success response (`200`):
+
+```json
+{
+  "authenticated": true,
+  "profile": {
+    "id": "uuid",
+    "display_name": "Google Pilot",
+    "auth_type": "google",
+    "email": "pilot@example.com"
+  }
+}
+```
+
+Possible errors:
+
+- `401 invalid_google_token`
+- `401 google_email_not_verified`
+
+`POST /v1/settings/account/google-link`
+
+Request:
+
+```json
+{
+  "id_token": "<google-id-token>"
+}
+```
+
+Success response (`200`):
+
+```json
+{
+  "authenticated": true,
+  "profile": {
+    "id": "uuid",
+    "display_name": "Commander Name",
+    "auth_type": "google",
+    "email": "pilot@example.com"
+  }
+}
+```
+
+Possible errors:
+
+- `401 unauthorized`
+- `401 invalid_google_token`
+- `401 google_email_not_verified`
+- `409 google_identity_in_use`
+- `409 email_already_used`

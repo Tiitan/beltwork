@@ -1,17 +1,20 @@
 import type { ReactNode, SubmitEvent } from 'react'
 import { createContext, useMemo } from 'react'
-import { hasStoredSession, useSessionProfileState } from '../../hooks/useSessionProfileState'
+import { useSessionProfileState } from '../../hooks/useSessionProfileState'
 import type { Profile, SettingsForm } from '../../types/app'
 
 type AuthSessionContextValue = {
   hasSession: boolean
+  isBootstrapping: boolean
   profile: Profile
   settingsForm: SettingsForm
   lastUpdatedAt: Date
-  startNowAsGuest: () => void
-  signIn: (event: SubmitEvent<HTMLFormElement>) => void
-  saveSettings: (event: SubmitEvent<HTMLFormElement>) => void
-  disconnect: () => boolean
+  startNowAsGuest: () => Promise<boolean>
+  signIn: (event: SubmitEvent<HTMLFormElement>) => Promise<boolean>
+  signInWithGoogleToken: (idToken: string) => Promise<boolean>
+  saveSettings: (event: SubmitEvent<HTMLFormElement>) => Promise<boolean>
+  disconnect: () => Promise<boolean>
+  linkCurrentAccountWithGoogle: (idToken: string) => Promise<boolean>
   refreshLastUpdatedAt: () => void
   setSettingsDisplayName: (value: string) => void
   setSettingsEmail: (value: string) => void
@@ -29,14 +32,17 @@ export function AuthSessionProvider({ children }: AuthSessionProviderProps) {
 
   const value = useMemo<AuthSessionContextValue>(
     () => ({
-      hasSession: hasStoredSession(),
+      hasSession: sessionState.hasSession,
+      isBootstrapping: sessionState.isBootstrapping,
       profile: sessionState.profile,
       settingsForm: sessionState.settingsForm,
       lastUpdatedAt: sessionState.lastUpdatedAt,
       startNowAsGuest: sessionState.startNowAsGuest,
       signIn: sessionState.signIn,
+      signInWithGoogleToken: sessionState.signInWithGoogleToken,
       saveSettings: sessionState.saveSettings,
       disconnect: sessionState.disconnect,
+      linkCurrentAccountWithGoogle: sessionState.linkCurrentAccountWithGoogle,
       refreshLastUpdatedAt: sessionState.refreshLastUpdatedAt,
       setSettingsDisplayName: (nextDisplayName: string) =>
         sessionState.setSettingsForm((current) => ({ ...current, displayName: nextDisplayName })),

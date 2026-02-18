@@ -3,7 +3,6 @@ import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-
 import './App.css'
 import { AuthSessionProvider } from './features/auth/AuthSessionProvider'
 import { useAuthSession } from './features/auth/useAuthSession'
-import { hasStoredSession } from './hooks/useSessionProfileState'
 import { StationProvider } from './features/station/StationProvider'
 import { LoginPage } from './pages/LoginPage'
 import { StationPage } from './pages/StationPage'
@@ -16,17 +15,19 @@ import { StationPage } from './pages/StationPage'
 function AppRoutes() {
   const navigate = useNavigate()
   const location = useLocation()
-  const { startNowAsGuest, signIn } = useAuthSession()
+  const { hasSession, isBootstrapping, startNowAsGuest, signIn, signInWithGoogleToken } =
+    useAuthSession()
 
   const screen = location.pathname.startsWith('/station') ? 'station' : 'login'
-  const sessionExists = hasStoredSession()
 
   /**
    * Starts a guest session and routes to station view.
    */
-  function handleStartNowAsGuest() {
-    startNowAsGuest()
-    navigate('/station')
+  async function handleStartNowAsGuest() {
+    const didStart = await startNowAsGuest()
+    if (didStart) {
+      navigate('/station')
+    }
   }
 
   /**
@@ -34,9 +35,22 @@ function AppRoutes() {
    *
    * @param event Login form submit event.
    */
-  function handleSignIn(event: SubmitEvent<HTMLFormElement>) {
-    signIn(event)
-    navigate('/station')
+  async function handleSignIn(event: SubmitEvent<HTMLFormElement>) {
+    const didSignIn = await signIn(event)
+    if (didSignIn) {
+      navigate('/station')
+    }
+  }
+
+  async function handleGoogleSignIn(idToken: string) {
+    const didSignIn = await signInWithGoogleToken(idToken)
+    if (didSignIn) {
+      navigate('/station')
+    }
+  }
+
+  if (isBootstrapping) {
+    return null
   }
 
   return (
@@ -44,21 +58,25 @@ function AppRoutes() {
       className={`min-h-screen bg-slate-950 bg-cover bg-center bg-no-repeat p-5 text-slate-100 max-[740px]:p-3 ${screen === 'login' ? 'bw-bg-login' : 'bw-bg-station'}`}
     >
       <Routes>
-        <Route path="/" element={<Navigate replace to={sessionExists ? '/station' : '/login'} />} />
+        <Route path="/" element={<Navigate replace to={hasSession ? '/station' : '/login'} />} />
         <Route
           path="/login"
           element={
-            sessionExists ? (
+            hasSession ? (
               <Navigate replace to="/station" />
             ) : (
-              <LoginPage onSignIn={handleSignIn} onStartNow={handleStartNowAsGuest} />
+              <LoginPage
+                onSignIn={handleSignIn}
+                onStartNow={handleStartNowAsGuest}
+                onGoogleSignIn={handleGoogleSignIn}
+              />
             )
           }
         />
         <Route
           path="/station/*"
           element={
-            !sessionExists ? (
+            !hasSession ? (
               <Navigate replace to="/login" />
             ) : (
               <StationProvider>
@@ -67,7 +85,7 @@ function AppRoutes() {
             )
           }
         />
-        <Route path="*" element={<Navigate replace to={sessionExists ? '/station' : '/login'} />} />
+        <Route path="*" element={<Navigate replace to={hasSession ? '/station' : '/login'} />} />
       </Routes>
     </main>
   )
