@@ -98,6 +98,21 @@ describe('Login page', () => {
         } as Response
       }
 
+      if (url.endsWith('/v1/station') && init?.method === 'GET') {
+        return {
+          ok: true,
+          json: async () => ({
+            station: { id: 'st-1', x: 140, y: -25 },
+            inventory: [
+              { resource_key: 'water', amount: 100 },
+              { resource_key: 'metals', amount: 50 },
+              { resource_key: 'conductors', amount: 25 },
+              { resource_key: 'carbon_materials', amount: 15 },
+            ],
+          }),
+        } as Response
+      }
+
       return {
         ok: false,
         json: async () => ({}),

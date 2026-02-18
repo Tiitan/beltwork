@@ -31,6 +31,11 @@ npm install
 
 ## Run locally
 
+App env files:
+
+- API: copy `apps/api/.env.example` to `apps/api/.env`
+- Web: copy `apps/web/.env.example` to `apps/web/.env`
+
 Start API:
 
 ```bash
@@ -121,3 +126,7 @@ Stop containers:
 ```bash
 docker compose down
 ```
+
+## Asset scripts env
+
+Root `/.env.example` now contains only root tooling variables used by asset generation scripts in `scripts/`.

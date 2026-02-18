@@ -1,14 +1,6 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { fetchStationInventory } from '../features/station/api'
 import type { AsteroidRow, BuildingRow, InventoryRow } from '../types/app'
-
-/**
- * Initial inventory snapshot used by the station screen.
- */
-const initialInventory: InventoryRow[] = [
-  { resourceKey: 'res_metals', amount: 120 },
-  { resourceKey: 'res_carbon', amount: 45 },
-  { resourceKey: 'cmp_metal_plates', amount: 12 },
-]
 
 /**
  * Initial building snapshot used by the station screen.
@@ -47,16 +39,47 @@ const discoveredAsteroids: AsteroidRow[] = [
 export function useStationState() {
   const [selectedAsteroidId, setSelectedAsteroidId] = useState(discoveredAsteroids[0]?.id ?? '')
   const [selectedRecipeKey, setSelectedRecipeKey] = useState('rcp_refine_metal_plates')
-  const [inventory] = useState(initialInventory)
+  const [inventory, setInventory] = useState<InventoryRow[]>([])
   const [buildings] = useState(initialBuildings)
+  const [inventoryError, setInventoryError] = useState<string | null>(null)
 
   const selectedAsteroid = useMemo(
     () => discoveredAsteroids.find((asteroid) => asteroid.id === selectedAsteroidId),
     [selectedAsteroidId],
   )
 
+  useEffect(() => {
+    let isMounted = true
+
+    async function loadStationInventory() {
+      try {
+        const nextInventory = await fetchStationInventory()
+        if (!isMounted) {
+          return
+        }
+
+        setInventory(nextInventory)
+        setInventoryError(null)
+      } catch {
+        if (!isMounted) {
+          return
+        }
+
+        setInventory([])
+        setInventoryError('unavailable')
+      }
+    }
+
+    void loadStationInventory()
+
+    return () => {
+      isMounted = false
+    }
+  }, [])
+
   return {
     inventory,
+    inventoryError,
     buildings,
     discoveredAsteroids,
     selectedAsteroid,

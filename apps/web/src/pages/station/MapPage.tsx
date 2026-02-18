@@ -1,4 +1,5 @@
 import { useStation } from '../../features/station/useStation'
+import { getAsteroidIconPath, iconFallbackPaths } from '../../features/station/iconPaths'
 import {
   stationButtonClassName,
   stationFieldClassName,
@@ -16,6 +17,19 @@ export function MapPage() {
     <div className="grid gap-3 md:grid-cols-2">
       <section aria-label="Map page mining" className={stationSectionWrapperClassName}>
         <h2 className={stationSectionTitleClassName}>Mining</h2>
+        {selectedAsteroid ? (
+          <div className="mb-1 flex items-center gap-2">
+            <img
+              src={getAsteroidIconPath(selectedAsteroid.templateId)}
+              alt={`${selectedAsteroid.templateId} asteroid icon`}
+              className="h-32 w-32 rounded-sm object-cover"
+              onError={(event) => {
+                event.currentTarget.src = iconFallbackPaths.asteroid
+              }}
+            />
+            <p className="m-0 text-sm text-slate-300">{selectedAsteroid.templateId}</p>
+          </div>
+        ) : null}
         <label htmlFor="asteroid-select" className={stationLabelClassName}>
           Target asteroid
         </label>
@@ -56,7 +70,17 @@ export function MapPage() {
         <ul className="m-0 grid list-none gap-2 p-0">
           {discoveredAsteroids.map((asteroid) => (
             <li key={asteroid.id} className={stationListRowClassName}>
-              <span className="min-w-0 break-words">{asteroid.id}</span>
+              <span className="flex min-w-0 items-center gap-2 break-words">
+                <img
+                  src={getAsteroidIconPath(asteroid.templateId)}
+                  alt={`${asteroid.templateId} asteroid icon`}
+                  className="h-32 w-32 rounded-sm object-cover"
+                  onError={(event) => {
+                    event.currentTarget.src = iconFallbackPaths.asteroid
+                  }}
+                />
+                <span className="min-w-0 break-words">{asteroid.id}</span>
+              </span>
               <span>{asteroid.templateId}</span>
             </li>
           ))}

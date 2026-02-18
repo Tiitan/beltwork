@@ -1,0 +1,20 @@
+{
+  "startup_resources": [
+    {
+      "resource_key": "water",
+      "amount": 100
+    },
+    {
+      "resource_key": "metals",
+      "amount": 50
+    },
+    {
+      "resource_key": "conductors",
+      "amount": 25
+    },
+    {
+      "resource_key": "carbon_materials",
+      "amount": 15
+    }
+  ]
+}

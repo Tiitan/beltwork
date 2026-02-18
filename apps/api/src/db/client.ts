@@ -2,11 +2,17 @@ import { drizzle } from 'drizzle-orm/node-postgres'
 import { Pool } from 'pg'
 import { env } from '../config.js'
 
+const activeDatabaseUrl = env.NODE_ENV === 'test' ? env.DATABASE_URL_TEST : env.DATABASE_URL
+
+if (env.NODE_ENV === 'test' && activeDatabaseUrl === env.DATABASE_URL) {
+  throw new Error('DATABASE_URL_TEST must differ from DATABASE_URL when NODE_ENV is test')
+}
+
 /**
  * Shared PostgreSQL connection pool.
  */
 export const pool = new Pool({
-  connectionString: env.DATABASE_URL,
+  connectionString: activeDatabaseUrl,
 })
 
 /**

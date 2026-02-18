@@ -1,96 +1,13 @@
 import { describe, expect, it } from 'vitest'
-import { buildServer } from './server.js'
+import { buildServer } from '../server.js'
 
-/**
- * Minimal event shape used for asserting emitted event types.
- */
 type EventTypeOnly = { event_type: string }
 
-/**
- * Projects event arrays to a list of event type identifiers.
- *
- * @param events API event array.
- * @returns Ordered event type list.
- */
 function eventTypes(events: EventTypeOnly[]): string[] {
   return events.map((event) => event.event_type)
 }
 
-/**
- * Verifies liveness and readiness endpoint behavior.
- */
-describe('observability routes', () => {
-  it('returns live status', async () => {
-    const app = buildServer({
-      checkReadiness: async () => {},
-    })
-
-    const response = await app.inject({
-      method: 'GET',
-      url: '/live',
-    })
-
-    expect(response.statusCode).toBe(200)
-    expect(response.json()).toEqual({ status: 'ok' })
-  })
-
-  it('returns ready when database check passes', async () => {
-    const app = buildServer({
-      checkReadiness: async () => {},
-    })
-
-    const response = await app.inject({
-      method: 'GET',
-      url: '/ready',
-    })
-
-    expect(response.statusCode).toBe(200)
-    expect(response.json()).toEqual({ status: 'ready' })
-  })
-
-  it('returns not_ready when database check fails', async () => {
-    const app = buildServer({
-      checkReadiness: async () => {
-        throw new Error('db unavailable')
-      },
-    })
-
-    const response = await app.inject({
-      method: 'GET',
-      url: '/ready',
-    })
-
-    expect(response.statusCode).toBe(503)
-    expect(response.json()).toEqual({ status: 'not_ready' })
-  })
-})
-
-describe('google auth api', () => {
-  it('returns invalid_google_token when verifier rejects token', async () => {
-    const app = buildServer({
-      checkReadiness: async () => {},
-      verifyGoogleIdToken: async () => {
-        throw new Error('bad token')
-      },
-    })
-
-    const response = await app.inject({
-      method: 'POST',
-      url: '/v1/auth/google',
-      payload: {
-        id_token: 'invalid-token',
-      },
-    })
-
-    expect(response.statusCode).toBe(401)
-    expect(response.json()).toEqual({ error: 'invalid_google_token' })
-  })
-})
-
-/**
- * Verifies factory API behavior for validation and production lifecycle.
- */
-describe('factory jobs api', () => {
+describe('factory routes', () => {
   it('validates finite queue payload', async () => {
     const app = buildServer({
       checkReadiness: async () => {},
@@ -106,6 +23,40 @@ describe('factory jobs api', () => {
     })
 
     expect(response.statusCode).toBe(400)
+  })
+
+  it('returns 404 when catch-up targets a missing factory job', async () => {
+    const app = buildServer({
+      checkReadiness: async () => {},
+    })
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/v1/factories/unknown/catch-up',
+      payload: {
+        elapsed_seconds: 120,
+        cycle_duration_seconds: 60,
+        available_input_cycles: 2,
+        output_capacity_cycles: 2,
+      },
+    })
+
+    expect(response.statusCode).toBe(404)
+    expect(response.json()).toEqual({ error: 'factory_job_not_found' })
+  })
+
+  it('returns 404 when fetching a missing factory job', async () => {
+    const app = buildServer({
+      checkReadiness: async () => {},
+    })
+
+    const response = await app.inject({
+      method: 'GET',
+      url: '/v1/factories/unknown',
+    })
+
+    expect(response.statusCode).toBe(404)
+    expect(response.json()).toEqual({ error: 'factory_job_not_found' })
   })
 
   it('stops finite production exactly at target cycles', async () => {
