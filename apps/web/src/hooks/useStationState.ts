@@ -1,6 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { fetchMapSnapshot, fetchStationSnapshot } from '../features/station/api'
-import type { BuildingRow, InventoryRow, MapSelection, MapSnapshot } from '../types/app'
+import type {
+  BuildingRow,
+  InventoryRow,
+  MapElement,
+  MapElementRef,
+  MapSnapshot,
+} from '../types/app'
 
 /**
  * Initial building snapshot used by the station screen.
@@ -17,7 +23,7 @@ const initialBuildings: BuildingRow[] = [
  * @returns Station collections, selected entities, and update handlers.
  */
 export function useStationState() {
-  const [selectedMapItem, setSelectedMapItem] = useState<MapSelection | null>(null)
+  const [selectedElementRef, setSelectedElementRef] = useState<MapElementRef | null>(null)
   const [selectedRecipeKey, setSelectedRecipeKey] = useState('rcp_refine_metal_plates')
   const [inventory, setInventory] = useState<InventoryRow[]>([])
   const [playerStation, setPlayerStation] = useState<{ id: string; x: number; y: number } | null>(
@@ -29,30 +35,35 @@ export function useStationState() {
   const [mapError, setMapError] = useState<string | null>(null)
   const [isMapLoading, setIsMapLoading] = useState(true)
 
-  const selectedStation = useMemo(
-    () =>
-      selectedMapItem?.type === 'station'
-        ? (mapSnapshot.stations.find((station) => station.id === selectedMapItem.id) ?? null)
-        : null,
-    [mapSnapshot.stations, selectedMapItem],
+  const mapEntities = useMemo<MapElement[]>(
+    () => [
+      ...mapSnapshot.stations.map((station) => ({ type: 'station' as const, data: station })),
+      ...mapSnapshot.asteroids.map((asteroid) => ({ type: 'asteroid' as const, data: asteroid })),
+    ],
+    [mapSnapshot.asteroids, mapSnapshot.stations],
   )
 
-  const selectedAsteroid = useMemo(
-    () =>
-      selectedMapItem?.type === 'asteroid'
-        ? (mapSnapshot.asteroids.find((asteroid) => asteroid.id === selectedMapItem.id) ?? null)
-        : null,
-    [mapSnapshot.asteroids, selectedMapItem],
-  )
+  const selectedElement = useMemo<MapElement | null>(() => {
+    if (!selectedElementRef) {
+      return null
+    }
 
-  function clearSelectedMapItem() {
-    setSelectedMapItem(null)
+    return (
+      mapEntities.find(
+        (entity) =>
+          entity.type === selectedElementRef.type && entity.data.id === selectedElementRef.id,
+      ) ?? null
+    )
+  }, [mapEntities, selectedElementRef])
+
+  function clearSelectedElement() {
+    setSelectedElementRef(null)
   }
 
   const refreshMapSnapshot = useCallback(async () => {
     const nextMapSnapshot = await fetchMapSnapshot()
     setMapSnapshot(nextMapSnapshot)
-    setSelectedMapItem((previous) => {
+    setSelectedElementRef((previous) => {
       if (!previous) {
         return null
       }
@@ -109,7 +120,7 @@ export function useStationState() {
         }
 
         setMapSnapshot(nextMapSnapshot)
-        setSelectedMapItem((previous) => {
+        setSelectedElementRef((previous) => {
           if (!previous) {
             return null
           }
@@ -129,7 +140,7 @@ export function useStationState() {
         }
 
         setMapSnapshot({ stations: [], asteroids: [] })
-        setSelectedMapItem(null)
+        setSelectedElementRef(null)
         setMapError('unavailable')
       } finally {
         if (isMounted) {
@@ -152,13 +163,14 @@ export function useStationState() {
     mapError,
     isMapLoading,
     playerStation,
+    playerAnchor: playerStation,
+    mapEntities,
     buildings,
-    selectedStation,
-    selectedAsteroid,
-    selectedMapItem,
+    selectedElement,
+    selectedElementRef,
     selectedRecipeKey,
-    setSelectedMapItem,
-    clearSelectedMapItem,
+    setSelectedElementRef,
+    clearSelectedElement,
     refreshMapSnapshot,
     setSelectedRecipeKey,
   }

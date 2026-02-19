@@ -51,9 +51,32 @@ export type MapSnapshot = {
   asteroids: MapAsteroid[]
 }
 
-export type MapSelection = {
-  type: 'station' | 'asteroid'
+export type MapElementType = 'station' | 'asteroid'
+
+export type MapElementRef = {
+  type: MapElementType
   id: string
+}
+
+export type MapElement =
+  | {
+      type: 'station'
+      data: MapStation
+    }
+  | {
+      type: 'asteroid'
+      data: MapAsteroid
+    }
+
+export type MapSelection = MapElementRef
+
+export type MapCoordinates = {
+  x: number
+  y: number
+}
+
+export type MapPanelContext = {
+  onClose: () => void
 }
 
 /**

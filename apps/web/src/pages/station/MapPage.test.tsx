@@ -19,31 +19,36 @@ beforeAll(() => {
 })
 
 function buildBaseState() {
+  const mapSnapshot = {
+    stations: [{ id: 'station-1', name: 'Commander Base', x: 140, y: -25 }],
+    asteroids: [
+      {
+        id: 'asteroid-1',
+        x: 300,
+        y: 400,
+        isScanned: true,
+        name: 'Metal-Rich Fragment',
+        yieldMultiplier: 1.15,
+        scannedRemainingUnits: 999,
+        scannedAt: '2026-02-19T12:00:00.000Z',
+        composition: { metals: 0.7, conductors: 0.15, carbon_materials: 0.1, water: 0.05 },
+      },
+    ],
+  }
   const state: any = {
-    mapSnapshot: {
-      stations: [{ id: 'station-1', name: 'Commander Base', x: 140, y: -25 }],
-      asteroids: [
-        {
-          id: 'asteroid-1',
-          x: 300,
-          y: 400,
-          isScanned: true,
-          name: 'Metal-Rich Fragment',
-          yieldMultiplier: 1.15,
-          scannedRemainingUnits: 999,
-          scannedAt: '2026-02-19T12:00:00.000Z',
-          composition: { metals: 0.7, conductors: 0.15, carbon_materials: 0.1, water: 0.05 },
-        },
-      ],
-    },
+    mapSnapshot,
+    mapEntities: [
+      ...mapSnapshot.stations.map((item: any) => ({ type: 'station', data: item })),
+      ...mapSnapshot.asteroids.map((item: any) => ({ type: 'asteroid', data: item })),
+    ],
     mapError: null,
     isMapLoading: false,
     playerStation: { id: 'station-1', x: 140, y: -25 },
-    selectedMapItem: null,
-    selectedStation: null,
-    selectedAsteroid: null,
-    setSelectedMapItem: vi.fn(),
-    clearSelectedMapItem: vi.fn(),
+    playerAnchor: { id: 'station-1', x: 140, y: -25 },
+    selectedElementRef: null,
+    selectedElement: null,
+    setSelectedElementRef: vi.fn(),
+    clearSelectedElement: vi.fn(),
     refreshMapSnapshot: vi.fn(async () => {}),
     inventory: [],
     inventoryError: null,
@@ -65,8 +70,8 @@ function renderWithState(state: any) {
 describe('MapPage details panel', () => {
   it('renders station details when a station is selected', () => {
     const state = buildBaseState()
-    state.selectedMapItem = { type: 'station', id: 'station-1' }
-    state.selectedStation = state.mapSnapshot.stations[0]
+    state.selectedElementRef = { type: 'station', id: 'station-1' }
+    state.selectedElement = { type: 'station', data: state.mapSnapshot.stations[0] }
 
     renderWithState(state)
 
@@ -77,8 +82,8 @@ describe('MapPage details panel', () => {
 
   it('renders scanned asteroid details and action placeholder message', async () => {
     const state = buildBaseState()
-    state.selectedMapItem = { type: 'asteroid', id: 'asteroid-1' }
-    state.selectedAsteroid = state.mapSnapshot.asteroids[0]
+    state.selectedElementRef = { type: 'asteroid', id: 'asteroid-1' }
+    state.selectedElement = { type: 'asteroid', data: state.mapSnapshot.asteroids[0] }
 
     renderWithState(state)
 
@@ -88,14 +93,18 @@ describe('MapPage details panel', () => {
     expect(screen.getByText('Remaining units (scan): 999')).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: 'Scan' }))
-    expect(await screen.findByText('Scan completed for asteroid asteroid-1.')).toBeInTheDocument()
+    expect(await screen.findByText('Scan completed for target asteroid-1.')).toBeInTheDocument()
   })
 
   it('renders unknown placeholders for unscanned asteroid', () => {
     const state = buildBaseState()
     state.mapSnapshot.asteroids = [{ id: 'asteroid-2', x: 500, y: 600, isScanned: false }]
-    state.selectedMapItem = { type: 'asteroid', id: 'asteroid-2' }
-    state.selectedAsteroid = state.mapSnapshot.asteroids[0]
+    state.mapEntities = [
+      ...state.mapSnapshot.stations.map((item: any) => ({ type: 'station', data: item })),
+      ...state.mapSnapshot.asteroids.map((item: any) => ({ type: 'asteroid', data: item })),
+    ]
+    state.selectedElementRef = { type: 'asteroid', id: 'asteroid-2' }
+    state.selectedElement = { type: 'asteroid', data: state.mapSnapshot.asteroids[0] }
 
     renderWithState(state)
 
