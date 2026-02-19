@@ -245,8 +245,8 @@ Key constraints:
 | `id`                  | `uuid`                | Factory job identifier.                                             |
 | `station_id`          | `uuid`                | Owning station id.                                                  |
 | `factory_building_id` | `uuid \| null`        | Optional specific building executing the job.                       |
-| `recipe_key`          | `text \| null`        | Selected recipe key.                                                |
-| `selected_at`         | `timestamptz`         | Time recipe was selected/started.                                   |
+| `blueprint_key`       | `text \| null`        | Selected blueprint key.                                             |
+| `selected_at`         | `timestamptz`         | Time blueprint was selected/started.                                |
 | `due_at`              | `timestamptz \| null` | Next due time for production completion/event.                      |
 | `cycles_completed`    | `integer`             | Count of completed production cycles.                               |
 | `target_cycles`       | `integer \| null`     | Queue stop target in cycles; `null` means infinite production.      |

@@ -1,4 +1,4 @@
-﻿# AGENT.md
+# AGENT.md
 
 ## Project Mission
 Build **Beltwork** as a browser-based, cozy automation game to learn React, TypeScript, and Node.js.
@@ -72,7 +72,7 @@ Out of scope:
 - Player can create station and view inventory.
 - Player can queue building construction/upgrade and see completion after refresh.
 - Player can assign mining to asteroid and receive resources after elapsed time.
-- Player can set factory recipe and receive produced components after elapsed time.
+- Player can set factory blueprint and receive produced components after elapsed time.
 - Player can add email/password and rename in settings without losing station progress.
 - All above works after being offline and returning later.
 

@@ -3,17 +3,17 @@ import { z } from 'zod'
 import {
   catchUpFactoryJob,
   catchUpInputSchema,
-  clearRecipe,
+  clearBlueprint,
   createSelectedJob,
-  selectRecipeInputSchema,
+  selectBlueprintInputSchema,
   toFactoryJobReadModel,
 } from '../factory-jobs/service.js'
 import type { AppServices } from '../types/api.js'
 
 export function registerFactoryRoutes(app: FastifyInstance, services: AppServices): void {
-  async function handleSelectRecipe(request: any, reply: any) {
+  async function handleSelectBlueprint(request: any, reply: any) {
     const params = z.object({ id: z.string().min(1) }).safeParse(request.params)
-    const body = selectRecipeInputSchema.safeParse(request.body)
+    const body = selectBlueprintInputSchema.safeParse(request.body)
 
     if (!params.success || !body.success) {
       return reply.code(400).send({
@@ -33,10 +33,10 @@ export function registerFactoryRoutes(app: FastifyInstance, services: AppService
       job: toFactoryJobReadModel(job),
       events: [
         {
-          event_type: 'factory.recipe.selected',
+          event_type: 'factory.blueprint.selected',
           payload: {
             factory_id: job.factoryId,
-            recipe_key: job.recipeKey,
+            blueprint_key: job.blueprintKey,
             target_cycles: job.targetCycles,
           },
         },
@@ -93,7 +93,7 @@ export function registerFactoryRoutes(app: FastifyInstance, services: AppService
     return { job: toFactoryJobReadModel(next), events }
   }
 
-  async function handleClearRecipe(request: any, reply: any) {
+  async function handleClearBlueprint(request: any, reply: any) {
     const params = z.object({ id: z.string().min(1) }).safeParse(request.params)
     if (!params.success) {
       return reply.code(400).send({ error: 'invalid_payload', details: params.error.issues })
@@ -104,7 +104,7 @@ export function registerFactoryRoutes(app: FastifyInstance, services: AppService
       return reply.code(404).send({ error: 'factory_job_not_found' })
     }
 
-    const next = clearRecipe(existing, new Date())
+    const next = clearBlueprint(existing, new Date())
     services.factoryJobs.set(params.data.id, next)
 
     return { job: toFactoryJobReadModel(next) }
@@ -124,8 +124,8 @@ export function registerFactoryRoutes(app: FastifyInstance, services: AppService
     return { job: toFactoryJobReadModel(existing) }
   }
 
-  app.post('/v1/factories/:id/select-recipe', handleSelectRecipe)
+  app.post('/v1/factories/:id/select-blueprint', handleSelectBlueprint)
   app.post('/v1/factories/:id/catch-up', handleCatchUp)
-  app.post('/v1/factories/:id/clear-recipe', handleClearRecipe)
+  app.post('/v1/factories/:id/clear-blueprint', handleClearBlueprint)
   app.get('/v1/factories/:id', handleGetFactory)
 }

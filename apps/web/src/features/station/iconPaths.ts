@@ -1,12 +1,12 @@
 const resourceIconBasePath = '/assets/icons/ressources'
 const buildingIconBasePath = '/assets/icons/buildings'
-const recipeIconBasePath = '/assets/icons/recipes'
+const blueprintIconBasePath = '/assets/icons/blueprints'
 const asteroidIconBasePath = '/assets/icons/asteroids'
 const stationIconBasePath = '/assets/icons/stations'
 
 const resourceFallbackIconPath = `${resourceIconBasePath}/res_metals.png`
 const buildingFallbackIconPath = `${buildingIconBasePath}/bld_refinery.png`
-const recipeFallbackIconPath = `${recipeIconBasePath}/rcp_refine_metal_plates.png`
+const blueprintFallbackIconPath = `${blueprintIconBasePath}/bp_refine_metal_plates.png`
 const asteroidFallbackIconPath = `${asteroidIconBasePath}/ast_common_chondrite.png`
 const defaultAsteroidIconPath = `${asteroidIconBasePath}/ast_default.png`
 const stationFallbackIconPath = `${stationIconBasePath}/default_station.png`
@@ -33,8 +33,8 @@ export function getBuildingIconPath(buildingType: string) {
   return `${buildingIconBasePath}/bld_${buildingType}.png`
 }
 
-export function getRecipeIconPath(recipeKey: string) {
-  return `${recipeIconBasePath}/${recipeKey}.png`
+export function getBlueprintIconPath(blueprintKey: string) {
+  return `${blueprintIconBasePath}/${blueprintKey}.png`
 }
 
 export function getAsteroidIconPath(asteroidTemplateId: string) {
@@ -52,7 +52,7 @@ export function getStationIconPath() {
 export const iconFallbackPaths = {
   resource: resourceFallbackIconPath,
   building: buildingFallbackIconPath,
-  recipe: recipeFallbackIconPath,
+  blueprint: blueprintFallbackIconPath,
   asteroid: asteroidFallbackIconPath,
   station: stationFallbackIconPath,
 }

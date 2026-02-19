@@ -15,9 +15,9 @@ describe('factory routes', () => {
 
     const response = await app.inject({
       method: 'POST',
-      url: '/v1/factories/f-1/select-recipe',
+      url: '/v1/factories/f-1/select-blueprint',
       payload: {
-        recipe_key: 'rcp_refine_metal_plates',
+        blueprint_key: 'bp_refine_metal_plates',
         is_infinite: false,
       },
     })
@@ -66,16 +66,16 @@ describe('factory routes', () => {
 
     const selectResponse = await app.inject({
       method: 'POST',
-      url: '/v1/factories/f-2/select-recipe',
+      url: '/v1/factories/f-2/select-blueprint',
       payload: {
-        recipe_key: 'rcp_refine_metal_plates',
+        blueprint_key: 'bp_refine_metal_plates',
         is_infinite: false,
         target_cycles: 3,
       },
     })
 
     expect(selectResponse.statusCode).toBe(200)
-    expect(selectResponse.json().events[0].event_type).toBe('factory.recipe.selected')
+    expect(selectResponse.json().events[0].event_type).toBe('factory.blueprint.selected')
 
     const catchUpResponse = await app.inject({
       method: 'POST',
@@ -106,9 +106,9 @@ describe('factory routes', () => {
 
     await app.inject({
       method: 'POST',
-      url: '/v1/factories/f-3/select-recipe',
+      url: '/v1/factories/f-3/select-blueprint',
       payload: {
-        recipe_key: 'rcp_refine_wire_spools',
+        blueprint_key: 'bp_refine_wire_spools',
         is_infinite: true,
       },
     })
@@ -137,9 +137,9 @@ describe('factory routes', () => {
 
     await app.inject({
       method: 'POST',
-      url: '/v1/factories/f-4/select-recipe',
+      url: '/v1/factories/f-4/select-blueprint',
       payload: {
-        recipe_key: 'rcp_refine_coolant_cells',
+        blueprint_key: 'bp_refine_coolant_cells',
         is_infinite: false,
         target_cycles: 10,
       },

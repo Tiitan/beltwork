@@ -219,7 +219,7 @@
           "per_level_multiplier": 1.12
         },
         {
-          "stat": "recipe_efficiency_multiplier",
+          "stat": "blueprint_efficiency_multiplier",
           "base": 1,
           "per_level_multiplier": 1.02
         }

@@ -1,9 +1,9 @@
 {
-  "recipes": [
+  "blueprints": [
     {
       "id": "refine_metal_plates",
       "name": "Metal Plating",
-      "icon": "rcp_refine_metal_plates",
+      "icon": "bp_refine_metal_plates",
       "building_id": "refinery",
       "mode": "continuous",
       "description": "Press and treat bulk metals into construction plates.",
@@ -30,7 +30,7 @@
     {
       "id": "refine_wire_spools",
       "name": "Wire Extrusion",
-      "icon": "rcp_refine_wire_spools",
+      "icon": "bp_refine_wire_spools",
       "building_id": "refinery",
       "mode": "continuous",
       "description": "Smelt and draw conductor stock into usable wire.",
@@ -57,7 +57,7 @@
     {
       "id": "refine_polymer_parts",
       "name": "Polymer Forming",
-      "icon": "rcp_refine_polymer_parts",
+      "icon": "bp_refine_polymer_parts",
       "building_id": "refinery",
       "mode": "continuous",
       "description": "Stabilize carbon feedstock into durable parts.",
@@ -84,7 +84,7 @@
     {
       "id": "refine_coolant_cells",
       "name": "Coolant Cell Filling",
-      "icon": "rcp_refine_coolant_cells",
+      "icon": "bp_refine_coolant_cells",
       "building_id": "refinery",
       "mode": "batch",
       "description": "Package water and alloys into thermal buffer cells.",
@@ -115,7 +115,7 @@
     {
       "id": "assemble_rig_kits",
       "name": "Rig Kit Assembly",
-      "icon": "rcp_assemble_rig_kits",
+      "icon": "bp_assemble_rig_kits",
       "building_id": "assembler",
       "mode": "batch",
       "description": "Assemble modular kits for mining rig deployment.",
@@ -150,7 +150,7 @@
     {
       "id": "assemble_station_parts",
       "name": "Station Part Assembly",
-      "icon": "rcp_assemble_station_parts",
+      "icon": "bp_assemble_station_parts",
       "building_id": "assembler",
       "mode": "batch",
       "description": "Produce multi-system station modules for upgrades.",
@@ -185,7 +185,7 @@
     {
       "id": "assemble_emergency_coolant_pack",
       "name": "Emergency Coolant Pack",
-      "icon": "rcp_assemble_emergency_coolant_pack",
+      "icon": "bp_assemble_emergency_coolant_pack",
       "building_id": "assembler",
       "mode": "continuous",
       "description": "Recycle parts into coolant packs to reduce overheating downtime.",
@@ -215,11 +215,11 @@
     }
   ],
   "global_rules": {
-    "continuous_recipe_behavior": "repeat_while_inputs_and_capacity_available",
-    "batch_recipe_behavior": "produce_one_batch_then_idle_until_requeued",
+    "continuous_blueprint_behavior": "repeat_while_inputs_and_capacity_available",
+    "batch_blueprint_behavior": "produce_one_batch_then_idle_until_requeued",
     "speed_scaling_stat": "production_speed_multiplier",
     "duration_formula": "effective_duration = base_duration_sec / production_speed_multiplier"
   },
-  "icon_master_prompt": "cozy hard sci-fi recipe icon, stylized 2D digital painting, clean silhouette, technical schema/blueprint vibe with readable process flow cues, centered composition, high readability at small size, blue schematic grid background, warm and friendly engineering mood",
+  "icon_master_prompt": "cozy hard sci-fi blueprint icon, stylized 2D digital painting, clean silhouette, technical schema/blueprint vibe with readable process flow cues, centered composition, high readability at small size, blue schematic grid background, warm and friendly engineering mood",
   "icon_output_background": "opaque"
 }

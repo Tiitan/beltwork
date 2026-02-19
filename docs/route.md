@@ -31,19 +31,19 @@ This document summarizes Beltwork API routes using:
 
 ## Factory Jobs
 
-| Method | Path                              | Status      | Purpose                                                   | Validation                                                           | Storage/Domain                                                                                   |
-| ------ | --------------------------------- | ----------- | --------------------------------------------------------- | -------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| `POST` | `/v1/factories/:id/select-recipe` | Implemented | Start/select a factory recipe for a factory id.           | `params`: `{ id: string(min 1) }`; `body`: `selectRecipeInputSchema` | Creates in-memory `FactoryJob`, emits `factory.recipe.selected` in response payload.             |
-| `POST` | `/v1/factories/:id/catch-up`      | Implemented | Run elapsed-time production catch-up for one factory job. | `params`: `{ id: string(min 1) }`; `body`: `catchUpInputSchema`      | Updates in-memory `FactoryJob`, may emit `inventory.changed` and `factory.production.completed`. |
-| `POST` | `/v1/factories/:id/clear-recipe`  | Implemented | Stop/clear currently selected recipe.                     | `params`: `{ id: string(min 1) }`                                    | Marks in-memory job as cleared/completed.                                                        |
-| `GET`  | `/v1/factories/:id`               | Implemented | Read current factory job state.                           | `params`: `{ id: string(min 1) }`                                    | Reads in-memory `FactoryJob`.                                                                    |
+| Method | Path                                 | Status      | Purpose                                                   | Validation                                                              | Storage/Domain                                                                                   |
+| ------ | ------------------------------------ | ----------- | --------------------------------------------------------- | ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| `POST` | `/v1/factories/:id/select-blueprint` | Implemented | Start/select a factory blueprint for a factory id.        | `params`: `{ id: string(min 1) }`; `body`: `selectBlueprintInputSchema` | Creates in-memory `FactoryJob`, emits `factory.blueprint.selected` in response payload.          |
+| `POST` | `/v1/factories/:id/catch-up`         | Implemented | Run elapsed-time production catch-up for one factory job. | `params`: `{ id: string(min 1) }`; `body`: `catchUpInputSchema`         | Updates in-memory `FactoryJob`, may emit `inventory.changed` and `factory.production.completed`. |
+| `POST` | `/v1/factories/:id/clear-blueprint`  | Implemented | Stop/clear currently selected blueprint.                  | `params`: `{ id: string(min 1) }`                                       | Marks in-memory job as cleared/completed.                                                        |
+| `GET`  | `/v1/factories/:id`                  | Implemented | Read current factory job state.                           | `params`: `{ id: string(min 1) }`                                       | Reads in-memory `FactoryJob`.                                                                    |
 
 ### Implemented Zod Schemas
 
 From `apps/api/src/factory-jobs/service.ts`:
 
-- `selectRecipeInputSchema`
-  - `recipe_key: string` (required, non-empty)
+- `selectBlueprintInputSchema`
+  - `blueprint_key: string` (required, non-empty)
   - `is_infinite: boolean` (required)
   - `target_cycles: int > 0` (optional)
   - rule: when `is_infinite = false`, `target_cycles` is required
@@ -97,10 +97,10 @@ These routes are specified in `architecture.md` and aligned with the game loop f
 
 ## Factory (Planned Surface)
 
-| Method | Path                              | Status                                             | Game-loop Intent                          | Main DB Tables                                       |
-| ------ | --------------------------------- | -------------------------------------------------- | ----------------------------------------- | ---------------------------------------------------- |
-| `POST` | `/v1/factories/:id/select-recipe` | Implemented now; Planned persisted behavior for v1 | Select production recipe in factory loop. | `factory_jobs`, `station_inventory`, `domain_events` |
-| `POST` | `/v1/factories/:id/clear-recipe`  | Implemented now; Planned persisted behavior for v1 | Stop current factory production.          | `factory_jobs`, `domain_events`                      |
+| Method | Path                                 | Status                                             | Game-loop Intent                             | Main DB Tables                                       |
+| ------ | ------------------------------------ | -------------------------------------------------- | -------------------------------------------- | ---------------------------------------------------- |
+| `POST` | `/v1/factories/:id/select-blueprint` | Implemented now; Planned persisted behavior for v1 | Select production blueprint in factory loop. | `factory_jobs`, `station_inventory`, `domain_events` |
+| `POST` | `/v1/factories/:id/clear-blueprint`  | Implemented now; Planned persisted behavior for v1 | Stop current factory production.             | `factory_jobs`, `domain_events`                      |
 
 ## Domain Events and Catch-Up Contract
 
@@ -117,7 +117,7 @@ Relevant event types for routes:
 - `building.upgrade.completed`
 - `mining.started`
 - `mining.completed`
-- `factory.recipe.selected`
+- `factory.blueprint.selected`
 - `factory.production.completed`
 - `inventory.changed`
 

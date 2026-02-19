@@ -214,7 +214,7 @@ export const factoryJobs = pgTable(
     factoryBuildingId: uuid('factory_building_id').references(() => stationBuildings.id, {
       onDelete: 'cascade',
     }),
-    recipeKey: text('recipe_key'),
+    blueprintKey: text('blueprint_key'),
     selectedAt: timestamp('selected_at', { withTimezone: true }).defaultNow().notNull(),
     dueAt: timestamp('due_at', { withTimezone: true }),
     cyclesCompleted: integer('cycles_completed').default(0).notNull(),

@@ -53,8 +53,8 @@ function buildBaseState() {
     inventory: [],
     inventoryError: null,
     buildings: [],
-    selectedRecipeKey: 'rcp_refine_metal_plates',
-    setSelectedRecipeKey: vi.fn(),
+    selectedBlueprintKey: 'bp_refine_metal_plates',
+    setSelectedBlueprintKey: vi.fn(),
   }
   return state
 }

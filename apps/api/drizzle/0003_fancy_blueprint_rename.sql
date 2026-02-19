@@ -1,0 +1,1 @@
+ALTER TABLE "factory_jobs" RENAME COLUMN "recipe_key" TO "blueprint_key";

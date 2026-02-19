@@ -2,17 +2,17 @@ import { describe, expect, it } from 'vitest'
 import {
   catchUpFactoryJob,
   createSelectedJob,
-  selectRecipeInputSchema,
-  type SelectRecipeInput,
+  selectBlueprintInputSchema,
+  type SelectBlueprintInput,
 } from './service.js'
 
 /**
  * Preserves inferred literal types for test payload fixtures.
  *
  * @param value Recipe input fixture.
- * @returns The same fixture value with `SelectRecipeInput` typing.
+ * @returns The same fixture value with `SelectBlueprintInput` typing.
  */
-function makeInput(value: SelectRecipeInput): SelectRecipeInput {
+function makeInput(value: SelectBlueprintInput): SelectBlueprintInput {
   return value
 }
 
@@ -21,8 +21,8 @@ function makeInput(value: SelectRecipeInput): SelectRecipeInput {
  */
 describe('factory job domain logic', () => {
   it('rejects non-positive target cycles for finite jobs', () => {
-    const parsed = selectRecipeInputSchema.safeParse({
-      recipe_key: 'rcp_refine_metal_plates',
+    const parsed = selectBlueprintInputSchema.safeParse({
+      blueprint_key: 'bp_refine_metal_plates',
       is_infinite: false,
       target_cycles: 0,
     })
@@ -35,7 +35,7 @@ describe('factory job domain logic', () => {
     const job = createSelectedJob(
       'factory-a',
       makeInput({
-        recipe_key: 'rcp_refine_metal_plates',
+        blueprint_key: 'bp_refine_metal_plates',
         is_infinite: false,
         target_cycles: 2,
       }),
@@ -58,7 +58,7 @@ describe('factory job domain logic', () => {
     const job = createSelectedJob(
       'factory-b',
       makeInput({
-        recipe_key: 'rcp_refine_wire_spools',
+        blueprint_key: 'bp_refine_wire_spools',
         is_infinite: true,
       }),
       now,
@@ -80,7 +80,7 @@ describe('factory job domain logic', () => {
     const job = createSelectedJob(
       'factory-c',
       makeInput({
-        recipe_key: 'rcp_refine_coolant_cells',
+        blueprint_key: 'bp_refine_coolant_cells',
         is_infinite: false,
         target_cycles: 10,
       }),

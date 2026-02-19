@@ -6,7 +6,7 @@ import { z } from 'zod'
 export type FactoryJob = {
   id: string
   factoryId: string
-  recipeKey: string | null
+  blueprintKey: string | null
   selectedAt: Date
   dueAt: Date | null
   cyclesCompleted: number
@@ -15,11 +15,11 @@ export type FactoryJob = {
 }
 
 /**
- * Input schema for selecting a recipe on a factory.
+ * Input schema for selecting a blueprint on a factory.
  */
-export const selectRecipeInputSchema = z
+export const selectBlueprintInputSchema = z
   .object({
-    recipe_key: z.string().min(1),
+    blueprint_key: z.string().min(1),
     is_infinite: z.boolean(),
     target_cycles: z.number().int().positive().optional(),
   })
@@ -34,9 +34,9 @@ export const selectRecipeInputSchema = z
   })
 
 /**
- * Parsed payload type for recipe selection.
+ * Parsed payload type for blueprint selection.
  */
-export type SelectRecipeInput = z.infer<typeof selectRecipeInputSchema>
+export type SelectBlueprintInput = z.infer<typeof selectBlueprintInputSchema>
 
 /**
  * Input schema for advancing a factory job simulation.
@@ -54,22 +54,22 @@ export const catchUpInputSchema = z.object({
 export type CatchUpInput = z.infer<typeof catchUpInputSchema>
 
 /**
- * Creates a new selected factory job from recipe selection input.
+ * Creates a new selected factory job from blueprint selection input.
  *
  * @param factoryId Factory identifier.
- * @param input Validated recipe selection payload.
+ * @param input Validated blueprint selection payload.
  * @param now Current timestamp reference.
  * @returns Newly initialized factory job.
  */
 export function createSelectedJob(
   factoryId: string,
-  input: SelectRecipeInput,
+  input: SelectBlueprintInput,
   now: Date,
 ): FactoryJob {
   return {
     id: factoryId,
     factoryId,
-    recipeKey: input.recipe_key,
+    blueprintKey: input.blueprint_key,
     selectedAt: now,
     dueAt: new Date(now.getTime() + 60_000),
     cyclesCompleted: 0,
@@ -79,16 +79,16 @@ export function createSelectedJob(
 }
 
 /**
- * Clears the active recipe and marks the job completed at the provided time.
+ * Clears the active blueprint and marks the job completed at the provided time.
  *
  * @param job Existing factory job state.
  * @param now Timestamp used as completion time.
- * @returns Updated job with cleared recipe.
+ * @returns Updated job with cleared blueprint.
  */
-export function clearRecipe(job: FactoryJob, now: Date): FactoryJob {
+export function clearBlueprint(job: FactoryJob, now: Date): FactoryJob {
   return {
     ...job,
-    recipeKey: null,
+    blueprintKey: null,
     dueAt: null,
     completedAt: now,
   }
@@ -170,7 +170,7 @@ export function toFactoryJobReadModel(job: FactoryJob) {
   return {
     id: job.id,
     factory_id: job.factoryId,
-    recipe_key: job.recipeKey,
+    blueprint_key: job.blueprintKey,
     cycles_completed: job.cyclesCompleted,
     target_cycles: job.targetCycles,
     remaining_cycles: remainingCycles,

@@ -24,7 +24,7 @@ const initialBuildings: BuildingRow[] = [
  */
 export function useStationState() {
   const [selectedElementRef, setSelectedElementRef] = useState<MapElementRef | null>(null)
-  const [selectedRecipeKey, setSelectedRecipeKey] = useState('rcp_refine_metal_plates')
+  const [selectedBlueprintKey, setSelectedBlueprintKey] = useState('bp_refine_metal_plates')
   const [inventory, setInventory] = useState<InventoryRow[]>([])
   const [playerStation, setPlayerStation] = useState<{ id: string; x: number; y: number } | null>(
     null,
@@ -168,10 +168,10 @@ export function useStationState() {
     buildings,
     selectedElement,
     selectedElementRef,
-    selectedRecipeKey,
+    selectedBlueprintKey,
     setSelectedElementRef,
     clearSelectedElement,
     refreshMapSnapshot,
-    setSelectedRecipeKey,
+    setSelectedBlueprintKey,
   }
 }

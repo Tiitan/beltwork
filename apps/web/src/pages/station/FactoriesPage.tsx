@@ -1,5 +1,5 @@
 import { useStation } from '../../features/station/useStation'
-import { getRecipeIconPath, iconFallbackPaths } from '../../features/station/iconPaths'
+import { getBlueprintIconPath, iconFallbackPaths } from '../../features/station/iconPaths'
 import {
   stationButtonClassName,
   stationFieldClassName,
@@ -8,50 +8,50 @@ import {
   stationSectionWrapperClassName,
 } from './styles'
 
-const availableRecipes = [
-  'rcp_refine_metal_plates',
-  'rcp_refine_wire_spools',
-  'rcp_assemble_station_parts',
+const availableBlueprints = [
+  'bp_refine_metal_plates',
+  'bp_refine_wire_spools',
+  'bp_assemble_station_parts',
 ]
 
 export function FactoriesPage() {
-  const { selectedRecipeKey, setSelectedRecipeKey } = useStation()
+  const { selectedBlueprintKey, setSelectedBlueprintKey } = useStation()
 
   return (
     <section aria-label="Factories page" className={stationSectionWrapperClassName}>
       <h2 className={stationSectionTitleClassName}>Factories</h2>
       <div className="mb-1 flex items-center gap-2">
         <img
-          src={getRecipeIconPath(selectedRecipeKey)}
-          alt={`${selectedRecipeKey} recipe icon`}
+          src={getBlueprintIconPath(selectedBlueprintKey)}
+          alt={`${selectedBlueprintKey} blueprint icon`}
           className="h-32 w-32 rounded-sm object-cover"
           onError={(event) => {
-            event.currentTarget.src = iconFallbackPaths.recipe
+            event.currentTarget.src = iconFallbackPaths.blueprint
           }}
         />
-        <p className="m-0 text-sm text-slate-300">Selected recipe: {selectedRecipeKey}</p>
+        <p className="m-0 text-sm text-slate-300">Selected blueprint: {selectedBlueprintKey}</p>
       </div>
-      <label htmlFor="recipe-select" className={stationLabelClassName}>
-        Recipe
+      <label htmlFor="blueprint-select" className={stationLabelClassName}>
+        Blueprint
       </label>
       <select
-        id="recipe-select"
-        value={selectedRecipeKey}
-        onChange={(event) => setSelectedRecipeKey(event.target.value)}
+        id="blueprint-select"
+        value={selectedBlueprintKey}
+        onChange={(event) => setSelectedBlueprintKey(event.target.value)}
         className={stationFieldClassName}
       >
-        {availableRecipes.map((recipeKey) => (
-          <option key={recipeKey} value={recipeKey}>
-            {recipeKey}
+        {availableBlueprints.map((blueprintKey) => (
+          <option key={blueprintKey} value={blueprintKey}>
+            {blueprintKey}
           </option>
         ))}
       </select>
       <div className="flex flex-wrap gap-2">
         <button type="button" className={stationButtonClassName}>
-          Select recipe
+          Select blueprint
         </button>
         <button type="button" className={stationButtonClassName}>
-          Clear recipe
+          Clear blueprint
         </button>
       </div>
     </section>

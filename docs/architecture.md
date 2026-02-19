@@ -1,4 +1,4 @@
-﻿# Beltwork Architecture (Iteration 1)
+# Beltwork Architecture (Iteration 1)
 
 ## 1. Goals and Constraints
 
@@ -136,7 +136,7 @@ No component runs a global tick.
 - `building.upgrade.completed`
 - `mining.started`
 - `mining.completed`
-- `factory.recipe.selected`
+- `factory.blueprint.selected`
 - `factory.production.completed`
 - `inventory.changed`
 
@@ -256,8 +256,8 @@ Spawn policy contract for v1:
 - `POST /v1/mining/stop`
 
 ### Factories
-- `POST /v1/factories/:id/select-recipe`
-- `POST /v1/factories/:id/clear-recipe`
+- `POST /v1/factories/:id/select-blueprint`
+- `POST /v1/factories/:id/clear-blueprint`
 
 All mutating endpoints:
 - validate input with Zod
@@ -271,7 +271,7 @@ All mutating endpoints:
   - building list + upgrade actions
   - inventory list
   - mining operations panel
-  - factory recipe selection panel
+  - factory blueprint selection panel
 
 ### State Strategy
 - `react-query` for server state
@@ -280,7 +280,7 @@ All mutating endpoints:
 - manual refresh button supported
 
 ### UX for no push updates
-- Show “Last updated at” timestamp
+- Show "Last updated at" timestamp
 - Show countdown estimates computed client-side from server timestamps
 - Require refresh or action to observe authoritative updates
 - Show map coordinates and computed distance-to-target in mining panel.
@@ -337,7 +337,7 @@ For now, keep `architecture.md` at repo root as requested.
 4. Implement `GET /v1/station` with catch-up transaction.
 5. Add building upgrade endpoints/events.
 6. Add mining start/resolve endpoints/events.
-7. Add factory recipe + production resolution.
+7. Add factory blueprint + production resolution.
 8. Build station UI in React + Tailwind.
 9. Add integration tests for catch-up and idempotency.
 
@@ -382,5 +382,6 @@ For now, keep `architecture.md` at repo root as requested.
 - Refresh after time passes and station correctly catches up.
 - Building upgrades complete without live connection.
 - Mining yields resources after elapsed time.
-- Factories produce continuously from selected recipe and available inputs.
+- Factories produce continuously from selected blueprint and available inputs.
 - No websocket or global tick required.
+

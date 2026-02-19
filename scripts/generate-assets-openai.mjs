@@ -13,7 +13,7 @@ const NEGATIVE_PROMPT =
 const CONFIG_FILES = [
   ['gameconfig/resources.json', 'resources', 'ressources'],
   ['gameconfig/buildings.json', 'buildings', 'buildings'],
-  ['gameconfig/recipes.json', 'recipes', 'recipes'],
+  ['gameconfig/blueprints.json', 'blueprints', 'blueprints'],
   ['gameconfig/asteroids.json', 'asteroid_templates', 'asteroids'],
 ]
 

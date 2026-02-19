@@ -18,7 +18,7 @@ Conventions:
 Files:
 - `resources.json`: item/resource catalog
 - `buildings.json`: station building definitions and scaling
-- `recipes.json`: production graph definitions
+- `blueprints.json`: production graph definitions
 - `asteroids.json`: asteroid template catalog and mining balancing inputs
 - `map.json`: shared world map bounds and spawn constraints
 
@@ -59,7 +59,7 @@ npm run assets:generate -- -- --provider openai
 
 Defaults:
 - output folder: `apps/web/public/assets/icons`
-- category folders: `ressources`, `buildings`, `recipes`, `asteroids`
+- category folders: `ressources`, `buildings`, `blueprints`, `asteroids`
 - size: `1024x1024`
 - provider: `comfyui`
 - ComfyUI URL: `http://127.0.0.1:8188`

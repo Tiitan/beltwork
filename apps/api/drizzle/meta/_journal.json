@@ -1,27 +1,34 @@
 {
-  "version": "7",
-  "dialect": "postgresql",
-  "entries": [
-    {
-      "idx": 0,
-      "version": "7",
-      "when": 1771078337950,
-      "tag": "0000_fair_shinobi_shaw",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "7",
-      "when": 1771429200000,
-      "tag": "0001_vivid_google_identity",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "7",
-      "when": 1771499911364,
-      "tag": "0002_adorable_sheva_callister",
-      "breakpoints": true
-    }
-  ]
+    "version":  "7",
+    "dialect":  "postgresql",
+    "entries":  [
+                    {
+                        "idx":  0,
+                        "version":  "7",
+                        "when":  1771078337950,
+                        "tag":  "0000_fair_shinobi_shaw",
+                        "breakpoints":  true
+                    },
+                    {
+                        "idx":  1,
+                        "version":  "7",
+                        "when":  1771429200000,
+                        "tag":  "0001_vivid_google_identity",
+                        "breakpoints":  true
+                    },
+                    {
+                        "idx":  2,
+                        "version":  "7",
+                        "when":  1771499911364,
+                        "tag":  "0002_adorable_sheva_callister",
+                        "breakpoints":  true
+                    },
+                    {
+                        "idx":  3,
+                        "breakpoints":  true,
+                        "when":  1771530653544,
+                        "version":  "7",
+                        "tag":  "0003_fancy_blueprint_rename"
+                    }
+                ]
 }
