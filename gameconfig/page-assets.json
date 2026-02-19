@@ -3,7 +3,7 @@
     {
       "id": "bg_login",
       "output_path": "apps/web/public/assets/page/bg_login.png",
-      "size": "2048x1152",
+      "size": "2048x1024",
       "output_background": "opaque",
       "master_prompt": "cozy science fiction, painterly concept-art feel, soft lighting, medium detail, clean composition, asteroid belt background, deep-space void, no planets, no moons, no large celestial discs",
       "asset_visual_description": "Calm welcoming asteroid-belt scene for login screen, foreground and midground asteroids with empty dark space around them, readable negative space at center-right for form legibility, desaturated cyan and steel-blue palette, no planetary horizon."
@@ -11,7 +11,7 @@
     {
       "id": "bg_station",
       "output_path": "apps/web/public/assets/page/bg_station.png",
-      "size": "2048x1152",
+      "size": "2048x1024",
       "output_background": "opaque",
       "master_prompt": "cozy science fiction, painterly concept-art feel, soft lighting, medium detail, clean composition, asteroid belt background, deep-space void, no planets, no moons, no large celestial discs",
       "asset_visual_description": "Lived-in orbital station observation deck hard-surface architecture framing dense asteroids against deep space only, camera view excludes planetary bodies, no spherical celestial objects, no horizon line, blue-green industrial tones with restrained warm practical lights."

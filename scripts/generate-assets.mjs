@@ -4,24 +4,30 @@ import fs from 'node:fs/promises'
 import path from 'node:path'
 import process from 'node:process'
 import { parseArgs as parseNodeArgs } from 'node:util'
+import { fileURLToPath } from 'node:url'
 import { createComfyUIProvider } from './image-providers/comfyui.mjs'
 import { createOpenAIProvider } from './image-providers/openai.mjs'
 
+const GAME_ASSETS_CONFIG = 'gameconfig/game_assets.json'
 const PAGE_ASSETS_CONFIG = 'gameconfig/page-assets.json'
-const NEGATIVE_PROMPT =
+
+const GAME_NEGATIVE_PROMPT =
+  'photorealistic, horror, violence, blood, logo, watermark, text, UI glyphs, over-sharpened, noisy, low-contrast mush, person, people, human, humanoid, character, portrait, face, hands'
+const PAGE_NEGATIVE_PROMPT =
   'photorealistic, horror, violence, blood, logo, watermark, text, UI glyphs, over-sharpened, noisy, low-contrast mush, person, people, human, humanoid, character, portrait, face, hands, astronaut, pilot, planet, planets, moon, moons, gas giant, earth-like sphere, planetary horizon, celestial disc, giant orb, skyline city, crowd'
 const GLOBAL_ASTEROID_FIELD_REQUIREMENT =
   'Global requirement: asteroid field only, deep-space void background, no planets, no moons, no large celestial discs.'
 
-function parseArgs(argv) {
+function parseArgs(argv, forcedTarget = null) {
   const defaults = {
+    target: forcedTarget ?? 'all',
     provider: process.env.ASSET_IMAGE_PROVIDER || 'comfyui',
     model: process.env.OPENAI_IMAGE_MODEL || 'gpt-image-1',
     background: process.env.OPENAI_IMAGE_BACKGROUND || null,
     comfyUrl: process.env.COMFYUI_URL || 'http://127.0.0.1:8188',
     comfyCheckpoint: process.env.COMFYUI_CHECKPOINT || '',
     comfySteps: 28,
-    comfyCfg: 7,
+    comfyCfg: 4.5,
     comfySampler: 'euler',
     comfyScheduler: 'normal',
     comfyDenoise: 1,
@@ -40,6 +46,7 @@ function parseArgs(argv) {
     allowPositionals: false,
     options: {
       'dry-run': { type: 'boolean' },
+      target: { type: 'string' },
       provider: { type: 'string' },
       model: { type: 'string' },
       background: { type: 'string' },
@@ -87,12 +94,17 @@ function parseArgs(argv) {
     if (value === undefined) {
       return fallback
     }
-
     const parsed = Number(value)
     return Number.isFinite(parsed) ? parsed : fallback
   }
 
+  const target = (forcedTarget ?? values.target ?? defaults.target).toLowerCase()
+  if (!['all', 'game', 'pages'].includes(target)) {
+    throw new Error(`Unsupported target: ${target}. Expected one of: all, game, pages.`)
+  }
+
   return {
+    target,
     provider: (values.provider ?? defaults.provider).toLowerCase(),
     model: values.model ?? defaults.model,
     background: values.background ?? defaults.background,
@@ -114,17 +126,18 @@ function parseArgs(argv) {
 }
 
 function printHelp() {
-  console.log('Usage: npm run assets:generate:pages -- -- [options]')
+  console.log('Usage: npm run assets:generate:assets -- -- [options]')
   console.log('')
   console.log('Options:')
   console.log('  --dry-run                   Print plan without generating images')
+  console.log('  --target <name>             all (default), game, or pages')
   console.log('  --provider <name>           Provider: comfyui (default) or openai')
   console.log('  --model <name>              Image model (default: gpt-image-1)')
   console.log('  --background <mode>         OpenAI background override')
   console.log('  --comfy-url <url>           ComfyUI endpoint (default: http://127.0.0.1:8188)')
   console.log('  --comfy-checkpoint <name>   ComfyUI checkpoint name (required for comfyui)')
   console.log('  --comfy-steps <n>           ComfyUI sampler steps (default: 28)')
-  console.log('  --comfy-cfg <n>             ComfyUI cfg scale (default: 7)')
+  console.log('  --comfy-cfg <n>             ComfyUI cfg scale (default: 4.5)')
   console.log('  --comfy-sampler <name>      ComfyUI sampler (default: euler)')
   console.log('  --comfy-scheduler <name>    ComfyUI scheduler (default: normal)')
   console.log('  --comfy-denoise <n>         ComfyUI denoise strength (default: 1)')
@@ -137,13 +150,13 @@ function printHelp() {
   console.log('  --help                      Show this help text')
 }
 
-async function loadPageAssetSpecs() {
-  const raw = await fs.readFile(PAGE_ASSETS_CONFIG, 'utf8')
+async function loadAssetSpecs(configPath, arrayKey, type) {
+  const raw = await fs.readFile(configPath, 'utf8')
   const sanitized = raw.charCodeAt(0) === 0xfeff ? raw.slice(1) : raw
   const json = JSON.parse(sanitized)
-  const entries = json.page_assets
+  const entries = json[arrayKey]
   if (!Array.isArray(entries)) {
-    throw new Error(`Expected array at ${PAGE_ASSETS_CONFIG} -> page_assets`)
+    throw new Error(`Expected array at ${configPath} -> ${arrayKey}`)
   }
 
   const seen = new Set()
@@ -158,13 +171,12 @@ async function loadPageAssetSpecs() {
     const description = entry?.asset_visual_description
 
     if (!id || typeof id !== 'string') {
-      throw new Error('Each page asset requires a string id.')
+      throw new Error(`Each ${type} asset requires a string id.`)
     }
     if (seen.has(id)) {
-      throw new Error(`Duplicate page asset id: ${id}`)
+      throw new Error(`Duplicate ${type} asset id: ${id}`)
     }
     seen.add(id)
-
     if (!outputPath || typeof outputPath !== 'string') {
       throw new Error(`Missing output_path for ${id}`)
     }
@@ -183,19 +195,28 @@ async function loadPageAssetSpecs() {
 
     specs.push({
       id,
+      type,
       outputPath: path.resolve(outputPath),
       size,
       outputBackground,
       masterPrompt,
       description,
+      manifest: configPath,
     })
   }
 
   return specs
 }
 
-function buildPrompt(masterPrompt, description) {
-  return `${masterPrompt} ${GLOBAL_ASTEROID_FIELD_REQUIREMENT} Asset focus: ${description}`
+function buildPrompt(spec) {
+  if (spec.type === 'pages') {
+    return `${spec.masterPrompt} ${GLOBAL_ASTEROID_FIELD_REQUIREMENT} Asset focus: ${spec.description}`
+  }
+  return `${spec.masterPrompt} Asset focus: ${spec.description}`
+}
+
+function negativePromptFor(spec) {
+  return spec.type === 'pages' ? PAGE_NEGATIVE_PROMPT : GAME_NEGATIVE_PROMPT
 }
 
 async function fileExists(filePath) {
@@ -240,19 +261,27 @@ function createProvider(opts, size, seed) {
   throw new Error(`Unsupported provider: ${opts.provider}`)
 }
 
-async function main() {
-  const opts = parseArgs(process.argv.slice(2))
-  const allSpecs = await loadPageAssetSpecs()
-  let selected = allSpecs
+export async function run(argv = process.argv.slice(2), forcedTarget = null) {
+  const opts = parseArgs(argv, forcedTarget)
 
+  const loaded = []
+  if (opts.target === 'all' || opts.target === 'game') {
+    loaded.push(...(await loadAssetSpecs(GAME_ASSETS_CONFIG, 'game_assets', 'game')))
+  }
+  if (opts.target === 'all' || opts.target === 'pages') {
+    loaded.push(...(await loadAssetSpecs(PAGE_ASSETS_CONFIG, 'page_assets', 'pages')))
+  }
+
+  let selected = loaded
   if (opts.only) {
     selected = selected.filter((spec) => opts.only.has(spec.id))
   }
   if (opts.limit) {
     selected = selected.slice(0, opts.limit)
   }
+
   if (selected.length === 0) {
-    console.log('No page asset ids selected. Nothing to generate.')
+    console.log('No asset ids selected. Nothing to generate.')
     return
   }
 
@@ -268,7 +297,7 @@ async function main() {
     planned.push(spec)
   }
 
-  console.log(`Manifest: ${PAGE_ASSETS_CONFIG}`)
+  console.log(`Target: ${opts.target}`)
   console.log(`Provider: ${opts.provider}`)
   console.log(`Model: ${opts.model}`)
   console.log(`Selected assets: ${selected.length}`)
@@ -294,14 +323,17 @@ async function main() {
     const spec = planned[i]
     const seed = opts.seedBase + i
     const provider = createProvider(opts, spec.size, seed)
-    const positivePrompt = buildPrompt(spec.masterPrompt, spec.description)
+    const positivePrompt = buildPrompt(spec)
+    const negativePrompt = negativePromptFor(spec)
 
-    console.log(`[${i + 1}/${planned.length}] Generating ${spec.id} (${spec.size})...`)
+    console.log(
+      `[${i + 1}/${planned.length}] Generating ${spec.id} (${spec.type}, ${spec.size}) from ${spec.manifest}...`,
+    )
     await provider.generate({
       id: spec.id,
       outputPath: spec.outputPath,
       positivePrompt,
-      negativePrompt: NEGATIVE_PROMPT,
+      negativePrompt,
       outputBackground: spec.outputBackground,
     })
     console.log(`Saved ${spec.outputPath}`)
@@ -310,7 +342,11 @@ async function main() {
   console.log('Done.')
 }
 
-main().catch((error) => {
-  console.error(error?.message || error)
-  process.exit(1)
-})
+const isEntrypoint =
+  process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)
+if (isEntrypoint) {
+  run().catch((error) => {
+    console.error(error?.message || error)
+    process.exit(1)
+  })
+}
