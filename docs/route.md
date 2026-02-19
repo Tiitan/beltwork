@@ -84,7 +84,7 @@ These routes are specified in `architecture.md` and aligned with the game loop f
 | Method | Path          | Status       | Game-loop Intent                                           | Main DB Tables                                                                                             |
 | ------ | ------------- | ------------ | ---------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
 | `GET`  | `/v1/station` | Planned (v1) | Return authoritative station snapshot with catch-up.       | `stations`, `station_buildings`, `station_inventory`, `factory_jobs`, `mining_operations`, `domain_events` |
-| `GET`  | `/v1/map`     | Planned (v1) | Return station position and discovered asteroid instances. | `stations`, `asteroid`                                                                                     |
+| `GET`  | `/v1/map`     | Planned (v1) | Return station position and discovered asteroid instances. | `stations`, `asteroid`, `scanned_asteroids`                                                                |
 
 ## Buildings and Mining
 

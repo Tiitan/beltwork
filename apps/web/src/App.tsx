@@ -55,38 +55,40 @@ function AppRoutes() {
 
   return (
     <main
-      className={`min-h-screen bg-slate-950 bg-cover bg-center bg-no-repeat p-5 text-slate-100 max-[740px]:p-3 ${screen === 'login' ? 'bw-bg-login' : 'bw-bg-station'}`}
+      className={`h-screen min-h-0 flex flex-col bg-slate-950 bg-cover bg-center bg-no-repeat p-5 text-slate-100 max-[740px]:p-3 ${screen === 'login' ? 'bw-bg-login' : 'bw-bg-station'}`}
     >
-      <Routes>
-        <Route path="/" element={<Navigate replace to={hasSession ? '/station' : '/login'} />} />
-        <Route
-          path="/login"
-          element={
-            hasSession ? (
-              <Navigate replace to="/station" />
-            ) : (
-              <LoginPage
-                onSignIn={handleSignIn}
-                onStartNow={handleStartNowAsGuest}
-                onGoogleSignIn={handleGoogleSignIn}
-              />
-            )
-          }
-        />
-        <Route
-          path="/station/*"
-          element={
-            !hasSession ? (
-              <Navigate replace to="/login" />
-            ) : (
-              <StationProvider>
-                <StationPage />
-              </StationProvider>
-            )
-          }
-        />
-        <Route path="*" element={<Navigate replace to={hasSession ? '/station' : '/login'} />} />
-      </Routes>
+      <div className="min-h-0 flex-1">
+        <Routes>
+          <Route path="/" element={<Navigate replace to={hasSession ? '/station' : '/login'} />} />
+          <Route
+            path="/login"
+            element={
+              hasSession ? (
+                <Navigate replace to="/station" />
+              ) : (
+                <LoginPage
+                  onSignIn={handleSignIn}
+                  onStartNow={handleStartNowAsGuest}
+                  onGoogleSignIn={handleGoogleSignIn}
+                />
+              )
+            }
+          />
+          <Route
+            path="/station/*"
+            element={
+              !hasSession ? (
+                <Navigate replace to="/login" />
+              ) : (
+                <StationProvider>
+                  <StationPage />
+                </StationProvider>
+              )
+            }
+          />
+          <Route path="*" element={<Navigate replace to={hasSession ? '/station' : '/login'} />} />
+        </Routes>
+      </div>
     </main>
   )
 }

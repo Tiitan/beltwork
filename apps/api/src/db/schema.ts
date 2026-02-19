@@ -136,6 +136,35 @@ export const asteroid = pgTable(
 )
 
 /**
+ * Per-player scanned asteroid snapshots used for fog-of-war map details.
+ */
+export const scannedAsteroids = pgTable(
+  'scanned_asteroids',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    playerId: uuid('player_id')
+      .references(() => players.id, { onDelete: 'cascade' })
+      .notNull(),
+    asteroidId: uuid('asteroid_id')
+      .references(() => asteroid.id, { onDelete: 'cascade' })
+      .notNull(),
+    remainingUnits: integer('remaining_units').notNull(),
+    scannedAt: timestamp('scanned_at', { withTimezone: true }).defaultNow().notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex('scanned_asteroids_player_asteroid_unique_idx').on(
+      table.playerId,
+      table.asteroidId,
+    ),
+    index('scanned_asteroids_player_id_idx').on(table.playerId),
+    index('scanned_asteroids_asteroid_id_idx').on(table.asteroidId),
+    check('scanned_asteroids_remaining_units_non_negative_chk', sql`${table.remainingUnits} >= 0`),
+  ],
+)
+
+/**
  * Active or completed mining operations from stations to asteroids.
  */
 export const miningOperations = pgTable(

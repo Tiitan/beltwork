@@ -155,6 +155,35 @@ Key constraints:
 | `created_at`      | `timestamptz` | Row creation timestamp.                              |
 | `updated_at`      | `timestamptz` | Row update timestamp.                                |
 
+### `scanned_asteroids`
+
+Purpose: Per-player asteroid scan snapshots used for map visibility/detail state.
+
+Latest-only rule:
+
+- One row per `(player_id, asteroid_id)` pair.
+- Re-scan should overwrite this row to keep only the latest snapshot.
+
+Key constraints:
+
+- Primary key: `id`
+- Foreign keys:
+  - `player_id -> players.id`
+  - `asteroid_id -> asteroid.id`
+- Unique latest-snapshot key: `(player_id, asteroid_id)`
+- Lookup indexes: `player_id`, `asteroid_id`
+- Non-negative units check (`remaining_units >= 0`)
+
+| Column            | Type          | Description                                                                |
+| ----------------- | ------------- | -------------------------------------------------------------------------- |
+| `id`              | `uuid`        | Snapshot row identifier.                                                   |
+| `player_id`       | `uuid`        | Player who performed the scan.                                             |
+| `asteroid_id`     | `uuid`        | Asteroid that was scanned.                                                 |
+| `remaining_units` | `integer`     | Snapshot value at scan time (not guaranteed to match live asteroid value). |
+| `scanned_at`      | `timestamptz` | Explicit scan timestamp used to track staleness/history point-in-time.     |
+| `created_at`      | `timestamptz` | Row creation timestamp.                                                    |
+| `updated_at`      | `timestamptz` | Row update timestamp.                                                      |
+
 ### `mining_operations`
 
 Purpose: Track mining runs from station to asteroid and catch-up processing state.

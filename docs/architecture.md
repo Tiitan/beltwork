@@ -173,6 +173,7 @@ Compute elapsed time from persisted timestamps when player hits API.
 - `station_buildings`
 - `station_inventory`
 - `asteroid`
+- `scanned_asteroids`
 - `mining_operations`
 - `factory_jobs`
 - `domain_events`
@@ -183,7 +184,7 @@ Compute elapsed time from persisted timestamps when player hits API.
 - time fields: `created_at`, `updated_at`, `last_simulated_at`, `due_at`, `processed_at`
 - event fields: `event_type`, `payload_json`, `idempotency_key`
 - identity fields: `display_name`, `email`, `password_hash`, `auth_type`
-- map fields: `x`, `y`, `spawned_at`, `template_id`, `remaining_units`, `is_depleted`
+- map fields: `x`, `y`, `spawned_at`, `template_id`, `remaining_units`, `is_depleted`, `scanned_at`
 
 ### Indexes
 - `domain_events (due_at, processed_at)`
@@ -242,6 +243,8 @@ Spawn policy contract for v1:
   - returns station position `{x,y}` for current player station
   - returns discovered asteroid instances:
     - `{id, template_id, x, y, distance_from_station, remaining_units, is_depleted}`
+  - combines live asteroid state (`asteroid`) with player scan snapshots (`scanned_asteroids`)
+  - for scanned asteroids, `remaining_units` in UI/read model is the snapshot from `scanned_asteroids`
   - never returns template static distance (none exists in config)
 
 ### Buildings

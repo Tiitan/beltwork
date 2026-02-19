@@ -14,14 +14,16 @@ import { MapPage } from './station/MapPage'
 export function StationPage() {
   return (
     <StationLayout>
-      <Routes>
-        <Route index element={<DashboardPage />} />
-        <Route path="buildings" element={<BuildingsPage />} />
-        <Route path="factories" element={<FactoriesPage />} />
-        <Route path="map" element={<MapPage />} />
-        <Route path="account" element={<AccountSettingsPage />} />
-        <Route path="*" element={<Navigate replace to="/station" />} />
-      </Routes>
+      <div className="min-h-0 flex-1 flex flex-col overflow-hidden">
+        <Routes>
+          <Route index element={<DashboardPage />} />
+          <Route path="buildings" element={<BuildingsPage />} />
+          <Route path="factories" element={<FactoriesPage />} />
+          <Route path="map" element={<MapPage />} />
+          <Route path="account" element={<AccountSettingsPage />} />
+          <Route path="*" element={<Navigate replace to="/station" />} />
+        </Routes>
+      </div>
     </StationLayout>
   )
 }

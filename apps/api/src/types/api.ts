@@ -40,6 +40,31 @@ export type StationSnapshotResponse = {
   }>
 }
 
+export type MapStationResponse = {
+  id: string
+  x: number
+  y: number
+  name: string
+}
+
+export type MapAsteroidResponse = {
+  id: string
+  x: number
+  y: number
+  is_scanned: boolean
+  name?: string
+  yield_multiplier?: number
+  composition?: Record<string, number>
+  template_id?: string
+  scanned_remaining_units?: number
+  scanned_at?: string
+}
+
+export type MapSnapshotResponse = {
+  stations: MapStationResponse[]
+  asteroids: MapAsteroidResponse[]
+}
+
 export type ResolvedAuthSession = {
   sessionId: string
   playerId: string

@@ -24,7 +24,10 @@ export function StationLayout({ children }: StationLayoutProps) {
   }
 
   return (
-    <section aria-label="Station page" className="w-full pb-5 pt-4 lg:pl-72">
+    <section
+      aria-label="Station page"
+      className="box-border min-h-0 flex-1 w-full pb-5 pt-4 lg:pl-72 flex flex-col"
+    >
       {isSidebarOpen ? (
         <button
           type="button"
@@ -106,7 +109,7 @@ export function StationLayout({ children }: StationLayoutProps) {
         </div>
       </aside>
 
-      <div className="mb-4 lg:hidden">
+      <div className="relative z-20 mb-4 lg:hidden">
         <button
           type="button"
           className="rounded-md border border-slate-300/30 px-3 py-2 text-sm text-slate-200"
@@ -116,7 +119,7 @@ export function StationLayout({ children }: StationLayoutProps) {
         </button>
       </div>
 
-      <div className="min-w-0">{children}</div>
+      <div className="min-w-0 min-h-0 flex-1 flex flex-col overflow-hidden">{children}</div>
     </section>
   )
 }

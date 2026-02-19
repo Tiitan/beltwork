@@ -26,6 +26,36 @@ export type AsteroidRow = {
   isDepleted: boolean
 }
 
+export type MapStation = {
+  id: string
+  name: string
+  x: number
+  y: number
+}
+
+export type MapAsteroid = {
+  id: string
+  x: number
+  y: number
+  isScanned: boolean
+  name?: string
+  yieldMultiplier?: number
+  composition?: Record<string, number>
+  templateId?: string
+  scannedRemainingUnits?: number
+  scannedAt?: string
+}
+
+export type MapSnapshot = {
+  stations: MapStation[]
+  asteroids: MapAsteroid[]
+}
+
+export type MapSelection = {
+  type: 'station' | 'asteroid'
+  id: string
+}
+
 /**
  * Supported account session modes.
  */

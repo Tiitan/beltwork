@@ -1,0 +1,20 @@
+{
+  "game_assets": [
+    {
+      "id": "ast_default",
+      "output_path": "apps/web/public/assets/icons/asteroids/ast_default.png",
+      "size": "1024x1024",
+      "output_background": "opaque",
+      "master_prompt": "stylized sci-fi game icon, 2D painted icon style, single centered object, no scene, no horizon, no platform, no characters, high contrast silhouette, readable at 24px, dark space backdrop with subtle stars",
+      "asset_visual_description": "generic unscanned asteroid icon, simplified faceted rocky chunk only, floating in empty space, neutral gray and charcoal tones, soft rim light, minimal highlights, no lens flare, no tools, no laser, no mining elements, no text, no ground, no floor, no cast shadow, no horizon"
+    },
+    {
+      "id": "default_station",
+      "output_path": "apps/web/public/assets/icons/stations/default_station.png",
+      "size": "1024x1024",
+      "output_background": "opaque",
+      "master_prompt": "stylized sci-fi game icon, flat 2D painted icon style, single centered object only, no scene, no horizon, no platform, no character, no person, no astronaut, no planet, no moon, high contrast silhouette, readable at 24px, dark space backdrop with subtle stars",
+      "asset_visual_description": "default orbital station icon only, compact industrial station with ring and core module, floating in empty space, centered, simple strong silhouette, cyan navigation lights, no ground, no base, no landing pad, no text"
+    }
+  ]
+}

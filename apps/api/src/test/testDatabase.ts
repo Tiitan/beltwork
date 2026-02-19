@@ -9,6 +9,7 @@ const testTables = [
   'domain_events',
   'factory_jobs',
   'mining_operations',
+  'scanned_asteroids',
   'asteroid',
   'station_inventory',
   'station_buildings',
