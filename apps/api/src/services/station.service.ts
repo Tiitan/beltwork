@@ -1,21 +1,53 @@
 import { asc, eq } from 'drizzle-orm'
-import { stationInventory, stations } from '../db/schema.js'
+import { asteroid, stationInventory, stations } from '../db/schema.js'
+import { loadMapConfig } from '../map/config.js'
+import { findPointWithFallback } from '../map/placement.js'
 import { startupResources } from '../station/newStationConfig.js'
 import type { AppServices, StationSnapshotResponse } from '../types/api.js'
 
-const STATION_SPAWN_X = 140
-const STATION_SPAWN_Y = -25
+const STATION_SPAWN_MAX_ATTEMPTS = 5_000
 
 export async function createStationForPlayer(
   services: AppServices,
   playerId: string,
 ): Promise<string> {
+  const mapConfig = await loadMapConfig()
+
+  const existingStationPoints = await services.db
+    .select({
+      x: stations.x,
+      y: stations.y,
+    })
+    .from(stations)
+
+  const asteroidPoints = await services.db
+    .select({
+      x: asteroid.x,
+      y: asteroid.y,
+    })
+    .from(asteroid)
+
+  const { point: stationPoint, usedFallback } = findPointWithFallback({
+    worldBounds: mapConfig.worldBounds,
+    maxAttempts: STATION_SPAWN_MAX_ATTEMPTS,
+    rules: [
+      {
+        points: existingStationPoints,
+        minDistance: mapConfig.stationSpawnRules.avoidOverlapRadius,
+      },
+      {
+        points: asteroidPoints,
+        minDistance: mapConfig.spawnConstraints.minStationToAsteroidDistance,
+      },
+    ],
+  })
+
   const [insertedStation] = await services.db
     .insert(stations)
     .values({
       playerId,
-      x: STATION_SPAWN_X,
-      y: STATION_SPAWN_Y,
+      x: stationPoint.x,
+      y: stationPoint.y,
     })
     .onConflictDoNothing({
       target: stations.playerId,
@@ -38,6 +70,12 @@ export async function createStationForPlayer(
     }
 
     return existingStation.id
+  }
+
+  if (usedFallback) {
+    console.warn(
+      `station_spawn_fallback playerId=${playerId} maxAttempts=${STATION_SPAWN_MAX_ATTEMPTS} x=${stationPoint.x} y=${stationPoint.y}`,
+    )
   }
 
   if (startupResources.length > 0) {

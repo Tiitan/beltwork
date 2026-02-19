@@ -24,7 +24,8 @@
     "assets:generate:pages": "node scripts/generate-page-assets.mjs",
     "assets:generate:pages:dry-run": "node scripts/generate-page-assets.mjs --dry-run",
     "assets:generate:pages:openai": "node scripts/generate-page-assets.mjs --provider openai",
-    "prepare": "husky"
+    "prepare": "husky",
+    "asteroids:generate": "npm run asteroids:generate --workspace @beltwork/api"
   },
   "engines": {
     "node": ">=20.0.0"

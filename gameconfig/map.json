@@ -16,6 +16,7 @@
   },
   "asteroid_spawn_rules": {
     "template_selection": "weighted_random",
-    "spawn_once": true
+    "spawn_once": true,
+    "target_non_depleted_asteroids": 200
   }
 }
