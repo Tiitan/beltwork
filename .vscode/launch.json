@@ -10,13 +10,13 @@
   "configurations": [
     {
       "name": "API (debug)",
-      "type": "pwa-node",
+      "type": "node",
       "request": "launch",
       "preLaunchTask": "docker: start postgres",
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev:api"],
       "env": {
-        "DATABASE_URL": "postgresql://postgres:postgres@127.0.0.1:5432/beltwork"
+        "DATABASE_URL": "postgresql://postgres:postgres@127.0.0.1:5433/beltwork"
       },
       "cwd": "${workspaceFolder}",
       "console": "integratedTerminal",
@@ -24,7 +24,7 @@
     },
     {
       "name": "Web (dev server)",
-      "type": "pwa-node",
+      "type": "node",
       "request": "launch",
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev:web"],
