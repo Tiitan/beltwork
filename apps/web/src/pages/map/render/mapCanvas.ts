@@ -1,5 +1,8 @@
-import type { MapElement, MapElementRef } from '../../../../types/app'
+import type { MapElement, MapElementRef } from '../../../types/app'
+import { loadImage } from '../../render/loadImage'
 import type { MapEntityRenderer } from '../panels/types'
+
+const MAP_EDGE_MARGIN_PX = 32
 
 export type CameraState = {
   scale: number
@@ -7,11 +10,57 @@ export type CameraState = {
   offsetY: number
 }
 
-export function drawBackgroundAndAxes(
+export type WorldBounds = {
+  minX: number
+  maxX: number
+  minY: number
+  maxY: number
+}
+
+export function clampMapCameraOffset(
+  offsetX: number,
+  offsetY: number,
+  scale: number,
+  viewportWidth: number,
+  viewportHeight: number,
+  worldBounds: WorldBounds,
+) {
+  const worldLeft = worldBounds.minX * scale
+  const worldRight = worldBounds.maxX * scale
+  const worldTop = worldBounds.minY * scale
+  const worldBottom = worldBounds.maxY * scale
+
+  const worldWidth = worldRight - worldLeft
+  const worldHeight = worldBottom - worldTop
+  const paddedWorldWidth = worldWidth + MAP_EDGE_MARGIN_PX * 2
+  const paddedWorldHeight = worldHeight + MAP_EDGE_MARGIN_PX * 2
+
+  const centeredOffsetX = (viewportWidth - (worldLeft + worldRight)) / 2
+  const centeredOffsetY = (viewportHeight - (worldTop + worldBottom)) / 2
+
+  const minOffsetX = viewportWidth - MAP_EDGE_MARGIN_PX - worldRight
+  const maxOffsetX = MAP_EDGE_MARGIN_PX - worldLeft
+  const minOffsetY = viewportHeight - MAP_EDGE_MARGIN_PX - worldBottom
+  const maxOffsetY = MAP_EDGE_MARGIN_PX - worldTop
+
+  return {
+    x:
+      paddedWorldWidth <= viewportWidth
+        ? centeredOffsetX
+        : Math.min(maxOffsetX, Math.max(minOffsetX, offsetX)),
+    y:
+      paddedWorldHeight <= viewportHeight
+        ? centeredOffsetY
+        : Math.min(maxOffsetY, Math.max(minOffsetY, offsetY)),
+  }
+}
+
+export function drawBackgroundAndWorldBorder(
   context: CanvasRenderingContext2D,
   width: number,
   height: number,
   camera: CameraState,
+  worldBounds: WorldBounds,
 ) {
   context.clearRect(0, 0, width, height)
   context.fillStyle = '#050915'
@@ -19,26 +68,12 @@ export function drawBackgroundAndAxes(
 
   context.strokeStyle = 'rgba(125, 149, 179, 0.16)'
   context.lineWidth = 1
-  context.beginPath()
-  context.moveTo(0, camera.offsetY)
-  context.lineTo(width, camera.offsetY)
-  context.moveTo(camera.offsetX, 0)
-  context.lineTo(camera.offsetX, height)
-  context.stroke()
-}
-
-export function loadImage(path: string, cache: Map<string, HTMLImageElement>, onReady: () => void) {
-  const existing = cache.get(path)
-  if (existing) {
-    return existing
-  }
-
-  const image = new Image()
-  image.onload = onReady
-  image.onerror = onReady
-  image.src = path
-  cache.set(path, image)
-  return image
+  context.strokeRect(
+    worldBounds.minX * camera.scale + camera.offsetX,
+    worldBounds.minY * camera.scale + camera.offsetY,
+    (worldBounds.maxX - worldBounds.minX) * camera.scale,
+    (worldBounds.maxY - worldBounds.minY) * camera.scale,
+  )
 }
 
 export function drawIconOrFallback(

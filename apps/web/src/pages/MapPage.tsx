@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useRef, useState, type PointerEvent, type WheelEvent } from 'react'
-import { useStation } from '../../features/station/useStation'
-import type { MapElement, MapElementRef } from '../../types/app'
+import { useStation } from '../features/station/useStation'
+import type { MapElement, MapElementRef } from '../types/app'
 import { AbstractPanel } from './map/panels/AbstractPanel'
 import { resolveRendererForElement } from './map/panels/entityRenderers'
 import {
-  drawBackgroundAndAxes,
+  clampMapCameraOffset,
+  drawBackgroundAndWorldBorder,
   drawEntity,
   findNearestEntityHit,
   type CameraState,
@@ -12,10 +13,12 @@ import {
 
 const MIN_SCALE = 0.1
 const MAX_SCALE = 4
-const DRAG_THRESHOLD_PX = 4
+const DRAG_THRESHOLD_MOUSE_PX = 4
+const DRAG_THRESHOLD_TOUCH_PX = 12
 
 export function MapPage() {
   const {
+    mapSnapshot,
     mapEntities,
     mapError,
     isMapLoading,
@@ -31,6 +34,8 @@ export function MapPage() {
   const imageCacheRef = useRef<Map<string, HTMLImageElement>>(new Map())
   const dragStartRef = useRef({ x: 0, y: 0, offsetX: 0, offsetY: 0 })
   const didDragRef = useRef(false)
+  const dragThresholdRef = useRef(DRAG_THRESHOLD_MOUSE_PX)
+  const suppressNextSelectionRef = useRef(false)
   const hasInitializedViewRef = useRef(false)
 
   const [canvasSize, setCanvasSize] = useState<{ width: number; height: number } | null>(null)
@@ -83,13 +88,35 @@ export function MapPage() {
     }
 
     const initialScale = 1
+    const centeredOffset = clampMapCameraOffset(
+      canvasSize.width / 2 - playerAnchor.x * initialScale,
+      canvasSize.height / 2 - playerAnchor.y * initialScale,
+      initialScale,
+      canvasSize.width,
+      canvasSize.height,
+      mapSnapshot.worldBounds,
+    )
     setScale(initialScale)
-    setOffset({
-      x: canvasSize.width / 2 - playerAnchor.x * initialScale,
-      y: canvasSize.height / 2 - playerAnchor.y * initialScale,
-    })
+    setOffset(centeredOffset)
     hasInitializedViewRef.current = true
-  }, [canvasSize, playerAnchor])
+  }, [canvasSize, mapSnapshot.worldBounds, playerAnchor])
+
+  useEffect(() => {
+    if (!canvasSize || !hasInitializedViewRef.current) {
+      return
+    }
+
+    setOffset((previous) =>
+      clampMapCameraOffset(
+        previous.x,
+        previous.y,
+        scale,
+        canvasSize.width,
+        canvasSize.height,
+        mapSnapshot.worldBounds,
+      ),
+    )
+  }, [canvasSize, mapSnapshot.worldBounds, scale])
 
   useEffect(() => {
     if (!canvasSize) {
@@ -114,7 +141,13 @@ export function MapPage() {
       offsetY: offset.y,
     }
 
-    drawBackgroundAndAxes(context, canvas.width, canvas.height, camera)
+    drawBackgroundAndWorldBorder(
+      context,
+      canvas.width,
+      canvas.height,
+      camera,
+      mapSnapshot.worldBounds,
+    )
 
     for (const entity of mapEntities) {
       const renderer = resolveRendererForElement(entity)
@@ -130,7 +163,15 @@ export function MapPage() {
         selectedElementRef,
       )
     }
-  }, [canvasSize, imageVersion, mapEntities, offset, scale, selectedElementRef])
+  }, [
+    canvasSize,
+    imageVersion,
+    mapEntities,
+    mapSnapshot.worldBounds,
+    offset,
+    scale,
+    selectedElementRef,
+  ])
 
   function toWorldCoordinates(clientX: number, clientY: number) {
     const rect = canvasRef.current?.getBoundingClientRect()
@@ -153,6 +194,8 @@ export function MapPage() {
   }
 
   function handlePointerDown(event: PointerEvent<HTMLCanvasElement>) {
+    dragThresholdRef.current =
+      event.pointerType === 'touch' ? DRAG_THRESHOLD_TOUCH_PX : DRAG_THRESHOLD_MOUSE_PX
     dragStartRef.current = {
       x: event.clientX,
       y: event.clientY,
@@ -170,20 +213,26 @@ export function MapPage() {
       setHoveredElementRef(findNearestHit(world.x, world.y))
     }
 
-    if (!isDragging) {
+    if (!isDragging || !canvasSize) {
       return
     }
 
     const deltaX = event.clientX - dragStartRef.current.x
     const deltaY = event.clientY - dragStartRef.current.y
-    if (!didDragRef.current && Math.hypot(deltaX, deltaY) > DRAG_THRESHOLD_PX) {
+    if (!didDragRef.current && Math.hypot(deltaX, deltaY) > dragThresholdRef.current) {
       didDragRef.current = true
     }
 
-    setOffset({
-      x: dragStartRef.current.offsetX + deltaX,
-      y: dragStartRef.current.offsetY + deltaY,
-    })
+    setOffset(
+      clampMapCameraOffset(
+        dragStartRef.current.offsetX + deltaX,
+        dragStartRef.current.offsetY + deltaY,
+        scale,
+        canvasSize.width,
+        canvasSize.height,
+        mapSnapshot.worldBounds,
+      ),
+    )
   }
 
   function handlePointerUp(event: PointerEvent<HTMLCanvasElement>) {
@@ -191,6 +240,11 @@ export function MapPage() {
     const didDrag = didDragRef.current
     setIsDragging(false)
     didDragRef.current = false
+
+    if (suppressNextSelectionRef.current) {
+      suppressNextSelectionRef.current = false
+      return
+    }
 
     if (!world || didDrag) {
       return
@@ -206,6 +260,10 @@ export function MapPage() {
   }
 
   function handleWheel(event: WheelEvent<HTMLCanvasElement>) {
+    if (!canvasSize) {
+      return
+    }
+
     event.preventDefault()
     const nextScale = Math.min(
       MAX_SCALE,
@@ -217,10 +275,16 @@ export function MapPage() {
       return
     }
 
-    setOffset({
-      x: pointer.screenX - pointer.x * nextScale,
-      y: pointer.screenY - pointer.y * nextScale,
-    })
+    setOffset(
+      clampMapCameraOffset(
+        pointer.screenX - pointer.x * nextScale,
+        pointer.screenY - pointer.y * nextScale,
+        nextScale,
+        canvasSize.width,
+        canvasSize.height,
+        mapSnapshot.worldBounds,
+      ),
+    )
     setScale(nextScale)
   }
 
@@ -286,7 +350,10 @@ export function MapPage() {
               setHoveredElementRef(null)
               setHoverPosition(null)
             }}
-            onPointerCancel={() => setIsDragging(false)}
+            onPointerCancel={() => {
+              setIsDragging(false)
+              didDragRef.current = false
+            }}
             onWheel={handleWheel}
           />
         ) : (
@@ -298,7 +365,16 @@ export function MapPage() {
             type="button"
             aria-label="Close details panel"
             className="absolute inset-0 z-20 bg-slate-950/45"
-            onClick={clearSelectedElement}
+            onPointerDown={(event) => {
+              event.preventDefault()
+              suppressNextSelectionRef.current = true
+              clearSelectedElement()
+            }}
+            onClick={(event) => {
+              if (event.detail === 0) {
+                clearSelectedElement()
+              }
+            }}
           />
         ) : null}
 

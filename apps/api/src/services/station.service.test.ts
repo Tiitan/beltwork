@@ -12,7 +12,7 @@ vi.mock('../map/placement.js', () => ({
 
 import { loadMapConfig } from '../map/config.js'
 import { findPointWithFallback } from '../map/placement.js'
-import { createStationForPlayer } from './station.service.js'
+import { createStationBuildingForPlayer, createStationForPlayer } from './station.service.js'
 
 type FakeDbOptions = {
   stationPoints: Array<{ x: number; y: number }>
@@ -23,7 +23,11 @@ type FakeDbOptions = {
 
 function createFakeDb(options: FakeDbOptions) {
   const captures: {
-    insertedStationValues: { playerId: string; x: number; y: number } | null
+    insertedStationValues: {
+      playerId: string
+      x: number
+      y: number
+    } | null
     insertedInventoryValues: Array<{
       stationId: string
       resourceKey: string
@@ -206,5 +210,27 @@ describe('createStationForPlayer', () => {
 
     expect(stationId).toBe('st-existing')
     expect(captures.insertedInventoryValues).toBeNull()
+  })
+})
+
+describe('createStationBuildingForPlayer', () => {
+  it('rejects out-of-range slot index', async () => {
+    await expect(
+      createStationBuildingForPlayer(
+        { db: {} } as unknown as Parameters<typeof createStationBuildingForPlayer>[0],
+        'player-1',
+        { buildingType: 'fusion_reactor', slotIndex: 11 },
+      ),
+    ).rejects.toMatchObject({ message: 'invalid_slot_index' })
+  })
+
+  it('rejects unsupported building type', async () => {
+    await expect(
+      createStationBuildingForPlayer(
+        { db: {} } as unknown as Parameters<typeof createStationBuildingForPlayer>[0],
+        'player-1',
+        { buildingType: 'unknown_building', slotIndex: 1 },
+      ),
+    ).rejects.toMatchObject({ message: 'unsupported_building_type' })
   })
 })

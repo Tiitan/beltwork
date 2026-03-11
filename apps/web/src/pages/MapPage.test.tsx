@@ -1,11 +1,11 @@
 import { fireEvent, render, screen } from '@testing-library/react'
 import { beforeAll, describe, expect, it, vi } from 'vitest'
-import { StationContext } from '../../features/station/StationProvider'
+import { StationContext } from '../features/station/StationProvider'
 import { MapPage } from './MapPage'
 
 const scanAsteroidMock = vi.fn(async (_asteroidId: string) => {})
 
-vi.mock('../../features/station/api', () => ({
+vi.mock('../features/station/api', () => ({
   scanAsteroid: (asteroidId: string) => scanAsteroidMock(asteroidId),
 }))
 
@@ -20,6 +20,7 @@ beforeAll(() => {
 
 function buildBaseState() {
   const mapSnapshot = {
+    worldBounds: { minX: 0, maxX: 10000, minY: 0, maxY: 10000 },
     stations: [{ id: 'station-1', name: 'Commander Base', x: 140, y: -25 }],
     asteroids: [
       {

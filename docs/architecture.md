@@ -1,387 +1,206 @@
-# Beltwork Architecture (Iteration 1)
+# Beltwork Architecture (Current Implementation)
+
+This document reflects the currently implemented web + API behavior in this repository.
 
 ## 1. Goals and Constraints
 
 ### Goals
-- Learn by building with React, TypeScript, Node, and PostgreSQL.
-- Deliver a playable vertical slice with offline progress.
-- Keep backend simulation event-driven and deterministic.
 
-### Hard Constraints
-- Pure web UI (`HTML/CSS`), no canvas.
+- Playable station and map loop with authentication and persistent state.
+- Server-authoritative snapshots for station and map.
+- Simple, testable architecture for iterative feature delivery.
+
+### Current Constraints
+
 - No websocket/push updates.
-- Backend runs simulation only on request or scheduled domain events.
-- State catches up from persisted timestamps.
-- Player can start instantly without signup via explicit `Start now` action.
-- Shared global map with runtime station/asteroid positions.
+- API is authoritative; frontend refreshes by query/mutation responses.
+- Build and upgrade flows for station buildings are temporary and free/instant.
+- Some domain systems remain scaffolded for future iterations (persistent factory simulation).
 
-## 2. Stack Recommendation
+## 2. Runtime Components
 
-### Chosen for v1
-- Frontend: `React + TypeScript + Vite + Tailwind`
-- Backend: `Node.js + TypeScript + Fastify`
-- DB: `PostgreSQL`
-- ORM: `Drizzle ORM`
-- Validation: `Zod`
+- `apps/web`: React + TypeScript SPA.
+- `apps/api`: Fastify + TypeScript API.
+- `postgres`: persistent storage for game/auth state.
 
-### Why not NestJS for v1
-NestJS is good for larger teams and strict structure, but adds abstraction overhead during early learning. Fastify keeps HTTP and domain flow explicit, which better fits this learning-first iteration.
+Current API process also hosts in-memory factory job scaffolding used by factory routes.
 
-### Redis decision
-Do not require Redis in v1. Add it only if needed for:
-- high-volume job queues
-- caching hot read models
-- distributed locking across workers
+## 3. Frontend Architecture
 
-For v1, PostgreSQL can store both game state and event queue.
+### 3.1 Authenticated Shell and Routes
 
-## 3. High-Level System Design
+Authenticated routes are mounted under one shell (`StationLayout` + `StationProvider`):
 
-### Runtime Components
-- `web` (React SPA)
-- `api` (Fastify server)
-- `worker` (Node process polling due events from PostgreSQL)
-- `postgres`
+- `/station`: station canvas home
+- `/map`: map canvas
+- `/account`: account settings
 
-### Interaction Model
-1. Player opens/refreshes page.
-2. API authenticates player, loads station aggregate.
-3. API runs catch-up simulation from station `last_simulated_at` to `now`.
-4. API applies due domain events (building completion, mining completion, production completion).
-5. API persists updates transactionally.
-6. API returns read model to frontend.
+Unauthenticated route:
 
-No component runs a global tick.
+- `/login`
 
-### Simulation Execution Contract
-- Station simulation runs on:
-  - player connection/read queries (for example station bootstrap/read endpoints)
-  - all player action queries before command application
-  - processing of completed domain events
-- Backend simulation is authoritative and persists the canonical state.
-- Frontend predicts current values from the latest authoritative snapshot:
-  - countdowns and progress bars are client-computed between server responses
-  - predicted values are replaced by authoritative values after the next API response
-  - any drift is resolved in favor of backend state
+Additional behavior:
 
-## 3.1 Guest-First Identity Flow
+- `/` redirects to `/station` when authenticated, else `/login`.
+- `/station/*` unknown subpaths render a station-area not-found view.
+- Legacy prefixed/nested route variants are removed from the canonical route set.
 
-### First Visit
-1. Browser calls `GET /v1/session/bootstrap`.
-2. If no valid auth cookie exists, API returns `unauthenticated` state.
-3. Login page shows `Start now` button.
-4. Browser calls `POST /v1/session/start-now`.
-5. API creates guest `Player` + starter `Station`, sets signed cookie, returns profile with generated display name.
+### 3.2 Station Page
 
-### Returning Visit
-- API resolves player from cookie and serves station snapshot.
-- If cookie is missing/invalid, API returns `unauthenticated` (no auto-create).
+The station home is a full-screen canvas scene:
 
-### Settings Upgrade
-- Guest can add email/password later in settings.
-- Identity links to same `player_id`; no progress migration required.
-- Player can rename display name.
+- Background image: `public/assets/page/station_map.png`
+- Fixed slot layout: 10 slots
+- Camera interactions: pan/zoom with clamped boundaries to image extents
+- Slot interactions:
+  - hover/select by slot hit detection
+  - selected slot opens right-side panel
+- Rendering model:
+  - occupied slots render building sprite
+  - empty slots render `empty_platform.png`
+  - hover highlights the sprite/platform, not borders
 
-### Google Sign-In and Linking
-- Login page supports Google ID token sign-in (`POST /v1/auth/google`).
-- Account resolution order:
-  - existing provider identity match (`player_identities.provider`, `provider_user_id`)
-  - fallback email auto-link to existing `players.email`
-  - otherwise create new player with `auth_type = google`
-- Logged-in accounts can link Google in settings (`POST /v1/settings/account/google-link`).
-- Google linking uses provider stable ID (`sub`), not only email.
+Panel system is generic:
 
-## 4. Event-Driven Domain Model
+- Core canvas logic is building-type agnostic.
+- Panel registry maps building type -> panel component.
+- Empty slot panel renders backend `buildable_buildings` and triggers build.
 
-### Core Domain Entities
-- `Player`
-- `Station`
-- `Building` (type, level, upgrade state)
-- `Asteroid`
-- `MiningOperation`
-- `FactoryJob`
-- `Inventory`
-- `DomainEvent`
+Implemented building panel coverage:
 
-`Station` map fields for v1 contract:
-- `x`
-- `y`
-- `spawned_at`
+- `fusion_reactor`
+- `life_support`
+- `radiators`
+- `mining_docks`
+- `scanner_survey`
+- `refinery`
+- `assembler`
+- `storage`
+- unknown fallback panel
 
-`Asteroid` fields for v1 contract:
-- `id`
-- `template_id`
-- `x`
-- `y`
-- `remaining_units`
-- `seed`
-- `spawned_at`
-- `is_depleted`
+Panel actions:
 
-`Player` fields for v1:
-- `id`
-- `display_name`
-- `email` (nullable, unique when present)
-- `password_hash` (nullable for guest players)
-- `auth_type` (`guest` | `local` | `google`)
+- `Upgrade` on building panels (temporary free/instant).
+- `Go to Map` on scanner/mining docks panels.
+- Storage panel shows station inventory.
 
-`PlayerIdentity` fields for Google linkage:
-- `player_id`
-- `provider` (currently `google`)
-- `provider_user_id` (Google `sub`)
-- `email` (last known provider email)
+### 3.3 Map Page
 
-### Event Types (v1)
-- `building.upgrade.started`
-- `building.upgrade.completed`
-- `mining.started`
-- `mining.completed`
-- `factory.blueprint.selected`
-- `factory.production.completed`
-- `inventory.changed`
+Map is a full-screen canvas with entity renderers and right-side panel:
 
-### Event Processing Rule
-- Events are append-only records.
-- Processing is idempotent via `processed_at` and idempotency keys.
-- Catch-up can safely re-check overdue events.
+- Camera pan/zoom is clamped to API world bounds.
+- Background draws world border rectangle (no origin cross lines).
+- Entities: stations and asteroids.
+- Asteroids support scan action via API (`POST /v1/asteroids/:id/scan`).
 
-### Scanner Semantics (v1)
-- `asteroid_list_size`: maximum count of asteroid instances returned by discovery query.
-- `rare_asteroid_chance`: query-time bonus weighting for rare template inclusion.
-- With one-time world spawn, scanner stats do not change spawn population.
+### 3.4 Frontend State Model
 
-## 5. Catch-Up Simulation Strategy
+State is managed through `StationProvider` / `useStationState`:
 
-### Principle
-Compute elapsed time from persisted timestamps when player hits API.
+- Station snapshot (`/v1/station`) drives station inventory/buildings/buildables.
+- Map snapshot (`/v1/map`) drives map entities and bounds.
+- Mutations (`build`, `upgrade`, `scan`) refresh local state from API responses.
 
-### Per-system behavior
-- Building upgrades: if completion time <= now, apply level increase and finalize.
-- Mining: award output proportional to elapsed duration, rig parameters, and runtime station-to-asteroid distance.
-- Factory production: consume inputs and create outputs for elapsed cycles.
+No `react-query` usage in the current implementation.
 
-### Safety
-- Always execute catch-up inside DB transaction.
-- Clamp negative durations to zero.
-- Use integer/fixed precision math for resources.
+## 4. Backend Architecture
 
-## 6. Persistence Model (PostgreSQL)
+### 4.1 API Surface (Implemented)
 
-### Tables (minimum)
-- `players`
-- `stations`
-- `station_buildings`
-- `station_inventory`
-- `asteroid`
-- `scanned_asteroids`
-- `mining_operations`
-- `factory_jobs`
-- `domain_events`
-- `simulation_locks` (optional; can use row lock on station)
-- `sessions` (if using server-side session IDs in cookie)
+Session/Auth:
 
-### Key columns
-- time fields: `created_at`, `updated_at`, `last_simulated_at`, `due_at`, `processed_at`
-- event fields: `event_type`, `payload_json`, `idempotency_key`
-- identity fields: `display_name`, `email`, `password_hash`, `auth_type`
-- map fields: `x`, `y`, `spawned_at`, `template_id`, `remaining_units`, `is_depleted`, `scanned_at`
-
-### Indexes
-- `domain_events (due_at, processed_at)`
-- `mining_operations (station_id, completed_at)`
-- `factory_jobs (station_id, completed_at)`
-- `station_inventory (station_id, resource_key)` unique
-- `players (email)` unique where email is not null
-- `asteroid (is_depleted, template_id)`
-- `asteroid (x, y)`
-
-## 6.1 Map and Distance Contract
-
-- Coordinate system: 2D cartesian (`map.json`).
-- Runtime distance formula:
-  - `distance_units = sqrt((asteroid_x - station_x)^2 + (asteroid_y - station_y)^2)`
-- Mining travel multiplier uses runtime distance from asteroid position.
-- Distance safety clamp for near-zero values:
-  - `effective_distance_units = max(distance_units, minimum_distance_units)`
-
-Spawn policy contract for v1:
-- Shared global map.
-- Asteroid templates are static config entries.
-- World asteroid instances are runtime spawned entities with positions.
-- Spawn is one-time world initialization for now (no auto-refill on depletion).
-
-## 7. API Surface (v1)
-
-### Session/Identity
 - `GET /v1/session/bootstrap`
-  - resolves cookie session
-  - returns either authenticated profile or `unauthenticated`
 - `POST /v1/session/start-now`
-  - creates guest player + station
-  - sets cookie
-  - returns player profile + minimal station summary
+- `POST /v1/auth/login`
+- `POST /auth/login` (alias)
 - `POST /v1/auth/google`
-  - verifies Google ID token
-  - resolves/creates player and links provider identity
-  - sets cookie and returns profile
-
-### Settings
-- `PATCH /v1/settings/profile`
-  - rename display name
 - `POST /v1/settings/account`
-  - set email/password to upgrade guest to local account
 - `POST /v1/settings/account/google-link`
-  - links verified Google identity to current account
+- `POST /v1/session/logout`
 
-### Station
+Station:
+
 - `GET /v1/station`
-  - runs catch-up, returns full station read model
-  - includes station position and discovered asteroid instances
+- `POST /v1/station/buildings`
+- `PATCH /v1/station/buildings/:buildingId`
 
-### Map
+Map:
+
 - `GET /v1/map`
-  - returns station position `{x,y}` for current player station
-  - returns discovered asteroid instances:
-    - `{id, template_id, x, y, distance_from_station, remaining_units, is_depleted}`
-  - combines live asteroid state (`asteroid`) with player scan snapshots (`scanned_asteroids`)
-  - for scanned asteroids, `remaining_units` in UI/read model is the snapshot from `scanned_asteroids`
-  - never returns template static distance (none exists in config)
+- `POST /v1/asteroids/:id/scan`
 
-### Buildings
-- `POST /v1/buildings/:type/create`
-- `POST /v1/buildings/:type/upgrade`
+Factory scaffolding:
 
-### Mining
-- `POST /v1/mining/start`
-- `POST /v1/mining/stop`
-
-### Factories
 - `POST /v1/factories/:id/select-blueprint`
+- `POST /v1/factories/:id/catch-up`
 - `POST /v1/factories/:id/clear-blueprint`
+- `GET /v1/factories/:id`
 
-All mutating endpoints:
-- validate input with Zod
-- execute domain command + append event(s)
-- return updated summary snapshot
+Health:
 
-## 8. Frontend Architecture
+- `GET /live`
+- `GET /ready`
 
-### Views
-- Station overview page (single page for v1)
-  - building list + upgrade actions
-  - inventory list
-  - mining operations panel
-  - factory blueprint selection panel
+### 4.2 Station Snapshot Contract
 
-### State Strategy
-- `react-query` for server state
-- one `GET /v1/station` query as primary source of truth
-- mutations invalidate/refetch station query
-- manual refresh button supported
+`GET /v1/station` (and station build/upgrade responses) returns:
 
-### UX for no push updates
-- Show "Last updated at" timestamp
-- Show countdown estimates computed client-side from server timestamps
-- Require refresh or action to observe authoritative updates
-- Show map coordinates and computed distance-to-target in mining panel.
+- root `id`, `x`, `y`
+- `inventory[]`
+- `buildings[]` with `slot_index`
+- `buildable_buildings[]`
 
-## 9. Worker/Event Execution
+Placement is read from `station_buildings.slot_index`; there is no `stations.building_layout` in current contract.
 
-### Worker loop (event-driven, not game tick)
-- Poll every few seconds for due, unprocessed events.
-- Claim events with `FOR UPDATE SKIP LOCKED`.
-- Apply domain handler transactionally.
-- Mark events processed.
+### 4.3 Station Build/Upgrade Rules (Current Temporary Rules)
 
-This is infrastructure polling, not simulation ticking. Simulation still depends on explicit due events and request catch-up.
+Build (`POST /v1/station/buildings`):
 
-## 10. Concurrency and Integrity
+- input: `{ building_type, slot_index }`
+- slot must be `1..10`
+- slot must be empty
+- only one building per type per station
+- buildable types currently restricted to 8 station building ids
+- created instantly at level 1 (free)
 
-- Lock station row during command + catch-up.
-- Use optimistic version or `updated_at` checks for conflicting writes.
-- Every command must be idempotent for retries.
-- Prevent double spend by consuming inventory in one transaction.
-- For settings updates, enforce email uniqueness transactionally.
+Upgrade (`PATCH /v1/station/buildings/:buildingId` with `{ action: 'upgrade' }`):
 
-## 10.1 Auth and Cookie Security
+- building must belong to current player station
+- increments level by 1 instantly (free)
 
-- Cookie should be `HttpOnly`, `Secure`, `SameSite=Lax`.
-- Cookie payload must be signed (or use opaque session ID).
-- Never accept `player_id` from query/body.
-- Passwords stored as strong hash (Argon2id recommended).
-- Rate-limit account creation and password-setting endpoints.
+Concurrency safety:
 
-## 11. Suggested Monorepo Layout
+- build flow executes in transaction and locks station row (`FOR UPDATE`).
 
-```txt
-beltwork/
-  apps/
-    web/
-    api/
-    worker/
-  packages/
-    domain/
-    db/
-    shared/
-  docs/
-    architecture.md (optional move later)
-```
+### 4.4 Map Contract
 
-For now, keep `architecture.md` at repo root as requested.
+`GET /v1/map` returns:
 
-## 12. Implementation Plan (First Build Steps)
+- `world_bounds { min_x, max_x, min_y, max_y }`
+- `stations[]`
+- `asteroids[]`
 
-1. Bootstrap monorepo + tooling (pnpm workspaces, TS config, lint).
-2. Create PostgreSQL schema + migrations.
-3. Implement domain simulation functions in `packages/domain`.
-4. Implement `GET /v1/station` with catch-up transaction.
-5. Add building upgrade endpoints/events.
-6. Add mining start/resolve endpoints/events.
-7. Add factory blueprint + production resolution.
-8. Build station UI in React + Tailwind.
-9. Add integration tests for catch-up and idempotency.
+Asteroids can be scanned per player; scanned rows include additional details such as
+`name`, `yield_multiplier`, `composition`, and scanned snapshot metadata.
 
-## 13. Testing Strategy
+## 5. Persistence and Data Ownership
 
-- Unit tests: resource math, production cycles, upgrade timers.
-- Integration tests: API command -> DB state -> catch-up correctness.
-- Replay test: apply same event twice; state must not duplicate rewards.
-- Config tests:
-  - `asteroids.json` contains no `distance_au`.
-  - every asteroid template has `spawn_weight > 0`.
-  - every asteroid template `composition` sums to 1.0 within epsilon.
-  - `map.json` bounds and spawn constraints are valid.
-- Domain tests:
-  - distance formula correctness from station and asteroid coordinates.
-  - mining travel multiplier uses runtime `distance_units`.
-  - weighted template selection deterministic with fixed RNG seed.
-- API contract tests:
-  - station payload includes station `{x,y}`.
-  - map payload asteroid entries include `{id, template_id, x, y, distance_from_station}`.
-  - responses include no template static distance field.
+Current ownership summary:
 
-## 14. Risks and Mitigations
+- Station coordinates: `stations` (`x`, `y`)
+- Building placement: `station_buildings.slot_index`
+- Building identity/state: `station_buildings`
+- Inventory: `station_inventory`
+- Map asteroids: `asteroid`
+- Per-player scanned asteroid snapshots: `scanned_asteroids`
 
-- Risk: time-based bugs from inconsistent timestamps.
-  - Mitigation: use UTC everywhere; server-generated times only.
-- Risk: duplicate processing on retries.
-  - Mitigation: idempotency keys + processed markers + unique constraints.
-- Risk: race conditions with multiple requests.
-  - Mitigation: row locks and transactional command handlers.
+Migration path used in this branch:
 
-## 15. v1 Acceptance Criteria
+- `0004`: added temporary `stations.building_layout`
+- `0005`: backfilled `station_buildings.slot_index`, enforced constraints, dropped `building_layout`
 
-- New player can start without signup from login page `Start now` button.
-- Returning player resumes via cookie identity.
-- Missing/invalid cookie does not auto-create a new game.
-- Guest can set email/password later without losing progress.
-- Player can rename from settings.
-- Asteroids are selected from template rarity (`spawn_weight`) and represented as runtime positioned instances.
-- Template config contains no static asteroid distance.
-- Station and asteroid map positions are represented in API contracts.
-- Refresh after time passes and station correctly catches up.
-- Building upgrades complete without live connection.
-- Mining yields resources after elapsed time.
-- Factories produce continuously from selected blueprint and available inputs.
-- No websocket or global tick required.
+## 6. Future Work (Not Implemented Yet)
 
+- Persistent factory job orchestration replacing in-memory scaffolding.
+- Full event-driven worker loop with durable processing of due domain events.
+- Cost/time-based building upgrade economy replacing temporary instant/free behavior.

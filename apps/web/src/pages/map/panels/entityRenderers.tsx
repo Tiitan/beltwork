@@ -2,8 +2,8 @@ import {
   getAsteroidIconPath,
   getDefaultAsteroidIconPath,
   getStationIconPath,
-} from '../../../../features/station/iconPaths'
-import type { MapAsteroid, MapElement, MapElementType, MapStation } from '../../../../types/app'
+} from '../../../features/station/iconPaths'
+import type { MapAsteroid, MapElement, MapElementType, MapStation } from '../../../types/app'
 import { AsteroidPanel } from './AsteroidPanel'
 import { formatCoordinates } from './panelUtils'
 import { StationPanel } from './StationPanel'

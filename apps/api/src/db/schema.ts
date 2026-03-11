@@ -73,6 +73,7 @@ export const stationBuildings = pgTable(
     stationId: uuid('station_id')
       .references(() => stations.id, { onDelete: 'cascade' })
       .notNull(),
+    slotIndex: integer('slot_index').notNull(),
     buildingType: text('building_type').notNull(),
     level: integer('level').default(1).notNull(),
     upgradeStartedAt: timestamp('upgrade_started_at', { withTimezone: true }),
@@ -80,9 +81,14 @@ export const stationBuildings = pgTable(
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },
   (table) => [
+    uniqueIndex('station_buildings_station_slot_unique_idx').on(table.stationId, table.slotIndex),
     uniqueIndex('station_buildings_station_type_unique_idx').on(
       table.stationId,
       table.buildingType,
+    ),
+    check(
+      'station_buildings_slot_index_range_chk',
+      sql`${table.slotIndex} >= 1 and ${table.slotIndex} <= 10`,
     ),
   ],
 )

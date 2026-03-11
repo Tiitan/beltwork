@@ -1,4 +1,4 @@
-import type { MapElement } from '../../../../types/app'
+import type { MapElement } from '../../../types/app'
 import { resolveRendererForElement } from './entityRenderers'
 
 type AbstractPanelProps = {

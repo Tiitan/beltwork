@@ -1,4 +1,4 @@
-import type { MapStation } from '../../../../types/app'
+import type { MapStation } from '../../../types/app'
 import { formatCoordinates } from './panelUtils'
 
 type StationPanelProps = {

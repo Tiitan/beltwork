@@ -2,6 +2,7 @@ import { eq } from 'drizzle-orm'
 import { readFile } from 'node:fs/promises'
 import { z } from 'zod'
 import { asteroid, players, scannedAsteroids, stations } from '../db/schema.js'
+import { loadMapConfig } from '../map/config.js'
 import type { AppServices, MapSnapshotResponse } from '../types/api.js'
 
 const asteroidTemplatesSchema = z.object({
@@ -26,6 +27,7 @@ export async function getMapSnapshotForPlayer(
   services: AppServices,
   playerId: string,
 ): Promise<MapSnapshotResponse> {
+  const mapConfig = await loadMapConfig()
   const templateById = await loadAsteroidTemplatesMap()
   const stationRows = await services.db
     .select({
@@ -75,6 +77,12 @@ export async function getMapSnapshotForPlayer(
   )
 
   return {
+    world_bounds: {
+      min_x: mapConfig.worldBounds.minX,
+      max_x: mapConfig.worldBounds.maxX,
+      min_y: mapConfig.worldBounds.minY,
+      max_y: mapConfig.worldBounds.maxY,
+    },
     stations: stationRows.map((stationRow) => ({
       id: stationRow.id,
       x: stationRow.x,

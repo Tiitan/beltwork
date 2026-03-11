@@ -1,27 +1,42 @@
-import type { InventoryRow, MapSnapshot } from '../../types/app'
+import type { BuildableBuildingRow, BuildingRow, InventoryRow, MapSnapshot } from '../../types/app'
 
 type StationSnapshotResponse = {
-  station: {
-    id: string
-    x: number
-    y: number
-  }
+  id: string
+  x: number
+  y: number
   inventory: Array<{
     resource_key: string
     amount: number
   }>
+  buildings: Array<{
+    id: string
+    building_type: string
+    level: number
+    status: 'idle' | 'upgrading'
+    slot_index: number
+  }>
+  buildable_buildings: Array<{
+    id: string
+    name: string
+  }>
 }
 
 export type StationSnapshot = {
-  station: {
-    id: string
-    x: number
-    y: number
-  }
+  id: string
+  x: number
+  y: number
   inventory: InventoryRow[]
+  buildings: BuildingRow[]
+  buildableBuildings: BuildableBuildingRow[]
 }
 
 type MapSnapshotResponse = {
+  world_bounds: {
+    min_x: number
+    max_x: number
+    min_y: number
+    max_y: number
+  }
   stations: Array<{
     id: string
     name: string
@@ -40,6 +55,29 @@ type MapSnapshotResponse = {
     scanned_remaining_units?: number
     scanned_at?: string
   }>
+}
+
+function parseStationSnapshotResponse(payload: StationSnapshotResponse): StationSnapshot {
+  return {
+    id: payload.id,
+    x: payload.x,
+    y: payload.y,
+    inventory: payload.inventory.map((item) => ({
+      resourceKey: item.resource_key,
+      amount: item.amount,
+    })),
+    buildings: payload.buildings.map((building) => ({
+      id: building.id,
+      type: building.building_type,
+      level: building.level,
+      status: building.status,
+      slotIndex: building.slot_index,
+    })),
+    buildableBuildings: payload.buildable_buildings.map((building) => ({
+      id: building.id,
+      name: building.name,
+    })),
+  }
 }
 
 function apiBaseUrl(): string {
@@ -66,22 +104,48 @@ export async function fetchStationSnapshot(): Promise<StationSnapshot> {
   }
 
   const payload = (await response.json()) as StationSnapshotResponse
-  return {
-    station: {
-      id: payload.station.id,
-      x: payload.station.x,
-      y: payload.station.y,
-    },
-    inventory: payload.inventory.map((item) => ({
-      resourceKey: item.resource_key,
-      amount: item.amount,
-    })),
-  }
+  return parseStationSnapshotResponse(payload)
 }
 
 export async function fetchStationInventory(): Promise<InventoryRow[]> {
   const snapshot = await fetchStationSnapshot()
   return snapshot.inventory
+}
+
+export async function createStationBuilding(
+  buildingType: string,
+  slotIndex: number,
+): Promise<StationSnapshot> {
+  const response = await apiFetch('/v1/station/buildings', {
+    method: 'POST',
+    body: JSON.stringify({
+      building_type: buildingType,
+      slot_index: slotIndex,
+    }),
+  })
+
+  if (!response.ok) {
+    throw new Error('failed_to_create_building')
+  }
+
+  const payload = (await response.json()) as StationSnapshotResponse
+  return parseStationSnapshotResponse(payload)
+}
+
+export async function upgradeStationBuilding(buildingId: string): Promise<StationSnapshot> {
+  const response = await apiFetch(`/v1/station/buildings/${buildingId}`, {
+    method: 'PATCH',
+    body: JSON.stringify({
+      action: 'upgrade',
+    }),
+  })
+
+  if (!response.ok) {
+    throw new Error('failed_to_upgrade_building')
+  }
+
+  const payload = (await response.json()) as StationSnapshotResponse
+  return parseStationSnapshotResponse(payload)
 }
 
 export async function fetchMapSnapshot(): Promise<MapSnapshot> {
@@ -92,6 +156,12 @@ export async function fetchMapSnapshot(): Promise<MapSnapshot> {
 
   const payload = (await response.json()) as MapSnapshotResponse
   return {
+    worldBounds: {
+      minX: payload.world_bounds.min_x,
+      maxX: payload.world_bounds.max_x,
+      minY: payload.world_bounds.min_y,
+      maxY: payload.world_bounds.max_y,
+    },
     stations: payload.stations.map((station) => ({
       id: station.id,
       name: station.name,

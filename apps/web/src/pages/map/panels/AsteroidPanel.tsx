@@ -1,7 +1,7 @@
 import { useState } from 'react'
-import { scanAsteroid } from '../../../../features/station/api'
-import { useStation } from '../../../../features/station/useStation'
-import type { MapAsteroid, MapPanelContext } from '../../../../types/app'
+import { scanAsteroid } from '../../../features/station/api'
+import { useStation } from '../../../features/station/useStation'
+import type { MapAsteroid, MapPanelContext } from '../../../types/app'
 import { formatCoordinates } from './panelUtils'
 
 type AsteroidPanelProps = {

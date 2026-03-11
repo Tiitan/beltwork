@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
-import { StationContext } from '../../../../features/station/StationProvider'
+import { StationContext } from '../../../features/station/StationProvider'
 import { AbstractPanel } from './AbstractPanel'
 
 const baseProps = {
@@ -9,7 +9,11 @@ const baseProps = {
 
 describe('AbstractPanel', () => {
   const stationState: any = {
-    mapSnapshot: { stations: [], asteroids: [] },
+    mapSnapshot: {
+      worldBounds: { minX: 0, maxX: 10000, minY: 0, maxY: 10000 },
+      stations: [],
+      asteroids: [],
+    },
     mapEntities: [],
     mapError: null,
     isMapLoading: false,

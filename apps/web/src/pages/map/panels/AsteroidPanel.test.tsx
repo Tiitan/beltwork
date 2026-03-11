@@ -1,17 +1,21 @@
 import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
-import { StationContext } from '../../../../features/station/StationProvider'
+import { StationContext } from '../../../features/station/StationProvider'
 import { AsteroidPanel } from './AsteroidPanel'
 
 const scanAsteroidMock = vi.fn(async (_asteroidId: string) => {})
 
-vi.mock('../../../../features/station/api', () => ({
+vi.mock('../../../features/station/api', () => ({
   scanAsteroid: (asteroidId: string) => scanAsteroidMock(asteroidId),
 }))
 
 function buildState() {
   return {
-    mapSnapshot: { stations: [], asteroids: [] },
+    mapSnapshot: {
+      worldBounds: { minX: 0, maxX: 10000, minY: 0, maxY: 10000 },
+      stations: [],
+      asteroids: [],
+    },
     mapEntities: [],
     mapError: null,
     isMapLoading: false,

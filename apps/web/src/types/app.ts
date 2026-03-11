@@ -10,9 +10,16 @@ export type InventoryRow = {
  * Building status row for station operations.
  */
 export type BuildingRow = {
+  id: string
   type: string
   level: number
   status: 'idle' | 'upgrading'
+  slotIndex: number
+}
+
+export type BuildableBuildingRow = {
+  id: string
+  name: string
 }
 
 /**
@@ -46,7 +53,15 @@ export type MapAsteroid = {
   scannedAt?: string
 }
 
+export type MapWorldBounds = {
+  minX: number
+  maxX: number
+  minY: number
+  maxY: number
+}
+
 export type MapSnapshot = {
+  worldBounds: MapWorldBounds
   stations: MapStation[]
   asteroids: MapAsteroid[]
 }

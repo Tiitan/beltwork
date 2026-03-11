@@ -117,6 +117,12 @@ describe('map routes', () => {
 
       expect(mapResponse.statusCode).toBe(200)
       const payload = mapResponse.json()
+      expect(payload.world_bounds).toEqual({
+        min_x: 0,
+        max_x: 10000,
+        min_y: 0,
+        max_y: 10000,
+      })
 
       expect(payload.stations.length).toBe(2)
       for (const station of payload.stations) {

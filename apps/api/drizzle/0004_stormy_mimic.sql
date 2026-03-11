@@ -1,0 +1,1 @@
+ALTER TABLE "stations" ADD COLUMN "building_layout" jsonb DEFAULT '{}'::jsonb NOT NULL;

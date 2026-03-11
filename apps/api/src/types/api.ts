@@ -29,14 +29,23 @@ export type AuthProfile = {
 }
 
 export type StationSnapshotResponse = {
-  station: {
-    id: string
-    x: number
-    y: number
-  }
+  id: string
+  x: number
+  y: number
   inventory: Array<{
     resource_key: string
     amount: number
+  }>
+  buildings: Array<{
+    id: string
+    building_type: string
+    level: number
+    status: 'idle' | 'upgrading'
+    slot_index: number
+  }>
+  buildable_buildings: Array<{
+    id: string
+    name: string
   }>
 }
 
@@ -61,6 +70,12 @@ export type MapAsteroidResponse = {
 }
 
 export type MapSnapshotResponse = {
+  world_bounds: {
+    min_x: number
+    max_x: number
+    min_y: number
+    max_y: number
+  }
   stations: MapStationResponse[]
   asteroids: MapAsteroidResponse[]
 }

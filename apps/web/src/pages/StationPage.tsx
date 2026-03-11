@@ -1,10 +1,17 @@
-import { Navigate, Route, Routes } from 'react-router-dom'
-import { StationLayout } from '../components/station/StationLayout'
-import { AccountSettingsPage } from './station/AccountSettingsPage'
-import { BuildingsPage } from './station/BuildingsPage'
-import { DashboardPage } from './station/DashboardPage'
-import { FactoriesPage } from './station/FactoriesPage'
-import { MapPage } from './station/MapPage'
+import { Route, Routes } from 'react-router-dom'
+import { StationHomePage } from './station/StationHomePage'
+
+function StationRouteNotFound() {
+  return (
+    <section
+      aria-label="Station page not found"
+      className="m-4 rounded-xl border border-slate-300/20 bg-slate-950/70 p-4 text-sm text-slate-200"
+    >
+      <h2 className="m-0 text-lg text-sky-100">Station page not found</h2>
+      <p className="mb-0 mt-2">The requested station section does not exist.</p>
+    </section>
+  )
+}
 
 /**
  * Renders station layout and station subpages.
@@ -13,17 +20,11 @@ import { MapPage } from './station/MapPage'
  */
 export function StationPage() {
   return (
-    <StationLayout>
-      <div className="min-h-0 flex-1 flex flex-col overflow-hidden">
-        <Routes>
-          <Route index element={<DashboardPage />} />
-          <Route path="buildings" element={<BuildingsPage />} />
-          <Route path="factories" element={<FactoriesPage />} />
-          <Route path="map" element={<MapPage />} />
-          <Route path="account" element={<AccountSettingsPage />} />
-          <Route path="*" element={<Navigate replace to="/station" />} />
-        </Routes>
-      </div>
-    </StationLayout>
+    <div className="min-h-0 flex-1 flex flex-col overflow-hidden">
+      <Routes>
+        <Route index element={<StationHomePage />} />
+        <Route path="*" element={<StationRouteNotFound />} />
+      </Routes>
+    </div>
   )
 }

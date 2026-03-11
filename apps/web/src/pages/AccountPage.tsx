@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react'
-import { GoogleSignInButton } from '../../features/auth/GoogleSignInButton'
-import { useAuthSession } from '../../features/auth/useAuthSession'
+import { GoogleSignInButton } from '../features/auth/GoogleSignInButton'
+import { useAuthSession } from '../features/auth/useAuthSession'
 import {
   stationButtonClassName,
   stationFieldClassName,
@@ -9,7 +9,7 @@ import {
   stationSectionWrapperClassName,
 } from './styles'
 
-export function AccountSettingsPage() {
+export function AccountPage() {
   const {
     linkCurrentAccountWithGoogle,
     profile,

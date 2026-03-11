@@ -1,7 +1,7 @@
 import { type ReactNode, useState } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import { useAuthSession } from '../../features/auth/useAuthSession'
-import { stationSectionTitleClassName, stationButtonClassName } from '../../pages/station/styles'
+import { stationSectionTitleClassName, stationButtonClassName } from '../../pages/styles'
 
 type StationLayoutProps = {
   children: ReactNode
@@ -59,28 +59,10 @@ export function StationLayout({ children }: StationLayoutProps) {
             }
             onClick={() => setIsSidebarOpen(false)}
           >
-            Dashboard
+            Station
           </NavLink>
           <NavLink
-            to="/station/buildings"
-            className={({ isActive }) =>
-              `${navLinkClassName} ${isActive ? activeNavLinkClassName : ''}`
-            }
-            onClick={() => setIsSidebarOpen(false)}
-          >
-            Buildings
-          </NavLink>
-          <NavLink
-            to="/station/factories"
-            className={({ isActive }) =>
-              `${navLinkClassName} ${isActive ? activeNavLinkClassName : ''}`
-            }
-            onClick={() => setIsSidebarOpen(false)}
-          >
-            Factories
-          </NavLink>
-          <NavLink
-            to="/station/map"
+            to="/map"
             className={({ isActive }) =>
               `${navLinkClassName} ${isActive ? activeNavLinkClassName : ''}`
             }
@@ -89,7 +71,7 @@ export function StationLayout({ children }: StationLayoutProps) {
             Map
           </NavLink>
           <NavLink
-            to="/station/account"
+            to="/account"
             className={({ isActive }) =>
               `${navLinkClassName} ${isActive ? activeNavLinkClassName : ''}`
             }

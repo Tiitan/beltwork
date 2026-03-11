@@ -5,7 +5,7 @@ import type {
   MapAsteroid,
   MapPanelContext,
   MapStation,
-} from '../../../../types/app'
+} from '../../../types/app'
 
 export type MapEntityPanelProps<TData> = {
   data: TData

@@ -1,185 +1,148 @@
 # Route Reference
 
-This document summarizes Beltwork API routes using:
+This document describes the current API and frontend route contracts in the repository.
 
-- `architecture.md`
-- `docs/database.md`
-- `beltwork_game_design_document.md`
-- current implementation in `apps/api/src/server.ts`
+## 1. API Routes (Implemented)
 
-## Status Key
+## 1.1 Health
 
-- `Implemented`: route exists in `apps/api/src/server.ts` today.
-- `Planned (v1)`: route is defined in architecture but not implemented yet.
+| Method | Path     | Purpose               |
+| ------ | -------- | --------------------- |
+| `GET`  | `/live`  | Liveness probe.       |
+| `GET`  | `/ready` | Readiness (DB) probe. |
 
-## Implemented Routes (Current API)
+## 1.2 Session and Account
 
-## Observability and Auth
+| Method | Path                               | Purpose                                  |
+| ------ | ---------------------------------- | ---------------------------------------- |
+| `GET`  | `/v1/session/bootstrap`            | Resolve auth state from cookie session.  |
+| `POST` | `/v1/session/start-now`            | Create guest player + station + session. |
+| `POST` | `/v1/auth/login`                   | Email/password login.                    |
+| `POST` | `/auth/login`                      | Alias for `/v1/auth/login`.              |
+| `POST` | `/v1/auth/google`                  | Google sign-in.                          |
+| `POST` | `/v1/settings/account`             | Save account settings / guest upgrade.   |
+| `POST` | `/v1/settings/account/google-link` | Link Google identity to current account. |
+| `POST` | `/v1/session/logout`               | Revoke session and clear cookie.         |
 
-| Method | Path                               | Status      | Purpose                                              | Validation                             | Storage/Domain                                                         |
-| ------ | ---------------------------------- | ----------- | ---------------------------------------------------- | -------------------------------------- | ---------------------------------------------------------------------- |
-| `GET`  | `/ready`                           | Implemented | Readiness probe with DB check.                       | None                                   | Calls DB connectivity check (`checkDatabaseConnection`).               |
-| `GET`  | `/live`                            | Implemented | Simple liveness probe.                               | None                                   | No DB write.                                                           |
-| `GET`  | `/v1/session/bootstrap`            | Implemented | Resolve signed-cookie session and return auth state. | Cookie session token + DB lookup       | Reads `sessions`, `players`; updates `sessions.last_seen_at`.          |
-| `POST` | `/v1/session/start-now`            | Implemented | Create guest account and session.                    | None                                   | Inserts into `players` and `sessions`, sets signed cookie.             |
-| `POST` | `/v1/auth/login`                   | Implemented | Email/password login and session issue.              | `{ email, password }`                  | Reads/updates `players`, inserts `sessions`, sets signed cookie.       |
-| `POST` | `/auth/login`                      | Implemented | Alias of `/v1/auth/login`.                           | `{ email, password }`                  | Same as `/v1/auth/login`.                                              |
-| `POST` | `/v1/auth/google`                  | Implemented | Google ID token sign-in.                             | `{ id_token }` + token verification    | Reads/writes `players`, `player_identities`, `sessions`.               |
-| `POST` | `/v1/settings/account`             | Implemented | Save profile settings / local credential upgrade.    | `{ display_name?, email?, password? }` | Updates `players`; enforces unique email.                              |
-| `POST` | `/v1/settings/account/google-link` | Implemented | Link Google identity to current session account.     | `{ id_token }` + authenticated session | Reads/writes `player_identities`, updates `players` for guest upgrade. |
-| `POST` | `/v1/session/logout`               | Implemented | Revoke session and clear cookie.                     | Cookie session token                   | Updates `sessions`; deletes guest-only player on disconnect.           |
+## 1.3 Station
 
-## Factory Jobs
+| Method  | Path                                | Purpose                                                  |
+| ------- | ----------------------------------- | -------------------------------------------------------- |
+| `GET`   | `/v1/station`                       | Return station snapshot for current player.              |
+| `POST`  | `/v1/station/buildings`             | Build building in station slot (temporary free/instant). |
+| `PATCH` | `/v1/station/buildings/:buildingId` | Upgrade building level (temporary free/instant).         |
 
-| Method | Path                                 | Status      | Purpose                                                   | Validation                                                              | Storage/Domain                                                                                   |
-| ------ | ------------------------------------ | ----------- | --------------------------------------------------------- | ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| `POST` | `/v1/factories/:id/select-blueprint` | Implemented | Start/select a factory blueprint for a factory id.        | `params`: `{ id: string(min 1) }`; `body`: `selectBlueprintInputSchema` | Creates in-memory `FactoryJob`, emits `factory.blueprint.selected` in response payload.          |
-| `POST` | `/v1/factories/:id/catch-up`         | Implemented | Run elapsed-time production catch-up for one factory job. | `params`: `{ id: string(min 1) }`; `body`: `catchUpInputSchema`         | Updates in-memory `FactoryJob`, may emit `inventory.changed` and `factory.production.completed`. |
-| `POST` | `/v1/factories/:id/clear-blueprint`  | Implemented | Stop/clear currently selected blueprint.                  | `params`: `{ id: string(min 1) }`                                       | Marks in-memory job as cleared/completed.                                                        |
-| `GET`  | `/v1/factories/:id`                  | Implemented | Read current factory job state.                           | `params`: `{ id: string(min 1) }`                                       | Reads in-memory `FactoryJob`.                                                                    |
+### Station Build Request
 
-### Implemented Zod Schemas
-
-From `apps/api/src/factory-jobs/service.ts`:
-
-- `selectBlueprintInputSchema`
-  - `blueprint_key: string` (required, non-empty)
-  - `is_infinite: boolean` (required)
-  - `target_cycles: int > 0` (optional)
-  - rule: when `is_infinite = false`, `target_cycles` is required
-- `catchUpInputSchema`
-  - `elapsed_seconds: int >= 0`
-  - `available_input_cycles: int >= 0`
-  - `output_capacity_cycles: int >= 0`
-  - `cycle_duration_seconds: int > 0` (default `60`)
-
-### Current Gap vs Target Architecture
-
-- Current factory routes keep job state in process memory (`Map<string, FactoryJob>`), so state is not persisted across API restarts.
-- Target architecture expects persistence and catch-up from PostgreSQL tables such as `factory_jobs`, `station_inventory`, and `domain_events`.
-
-## Planned Routes (v1 Architecture)
-
-These routes are specified in `architecture.md` and aligned with the game loop from `beltwork_game_design_document.md`.
-
-## Session and Identity
-
-| Method | Path                    | Status      | Game-loop Intent                        | Main DB Tables                             |
-| ------ | ----------------------- | ----------- | --------------------------------------- | ------------------------------------------ |
-| `GET`  | `/v1/session/bootstrap` | Implemented | Restore player and station on app open. | `sessions`, `players`, `stations`          |
-| `POST` | `/v1/session/start-now` | Implemented | Guest-first instant start flow.         | `players`, `stations`, `sessions`          |
-| `POST` | `/v1/auth/login`        | Implemented | Local credentials login.                | `players`, `sessions`                      |
-| `POST` | `/v1/auth/google`       | Implemented | Google token login with auto-linking.   | `players`, `player_identities`, `sessions` |
-
-## Settings
-
-| Method  | Path                               | Status       | Game-loop Intent                            | Main DB Tables                 |
-| ------- | ---------------------------------- | ------------ | ------------------------------------------- | ------------------------------ |
-| `PATCH` | `/v1/settings/profile`             | Planned (v1) | Rename player profile identity.             | `players`                      |
-| `POST`  | `/v1/settings/account`             | Implemented  | Upgrade guest account to local credentials. | `players`                      |
-| `POST`  | `/v1/settings/account/google-link` | Implemented  | Link Google identity to current account.    | `players`, `player_identities` |
-
-## Station and Map
-
-| Method | Path          | Status       | Game-loop Intent                                           | Main DB Tables                                                                                             |
-| ------ | ------------- | ------------ | ---------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| `GET`  | `/v1/station` | Planned (v1) | Return authoritative station snapshot with catch-up.       | `stations`, `station_buildings`, `station_inventory`, `factory_jobs`, `mining_operations`, `domain_events` |
-| `GET`  | `/v1/map`     | Planned (v1) | Return station position and discovered asteroid instances. | `stations`, `asteroid`, `scanned_asteroids`                                                                |
-
-## Buildings and Mining
-
-| Method | Path                          | Status       | Game-loop Intent                             | Main DB Tables                                            |
-| ------ | ----------------------------- | ------------ | -------------------------------------------- | --------------------------------------------------------- |
-| `POST` | `/v1/buildings/:type/create`  | Planned (v1) | Expand station capabilities.                 | `station_buildings`, `domain_events`, `station_inventory` |
-| `POST` | `/v1/buildings/:type/upgrade` | Planned (v1) | Improve building throughput/efficiency.      | `station_buildings`, `domain_events`, `station_inventory` |
-| `POST` | `/v1/mining/start`            | Planned (v1) | Start extraction from selected asteroid.     | `mining_operations`, `asteroid`, `domain_events`          |
-| `POST` | `/v1/mining/stop`             | Planned (v1) | Stop current mining run safely/idempotently. | `mining_operations`, `domain_events`                      |
-
-## Factory (Planned Surface)
-
-| Method | Path                                 | Status                                             | Game-loop Intent                             | Main DB Tables                                       |
-| ------ | ------------------------------------ | -------------------------------------------------- | -------------------------------------------- | ---------------------------------------------------- |
-| `POST` | `/v1/factories/:id/select-blueprint` | Implemented now; Planned persisted behavior for v1 | Select production blueprint in factory loop. | `factory_jobs`, `station_inventory`, `domain_events` |
-| `POST` | `/v1/factories/:id/clear-blueprint`  | Implemented now; Planned persisted behavior for v1 | Stop current factory production.             | `factory_jobs`, `domain_events`                      |
-
-## Domain Events and Catch-Up Contract
-
-Per architecture, mutating endpoints should:
-
-- validate payloads with Zod
-- apply command and simulation catch-up transactionally
-- append idempotent `domain_events`
-- return updated read model snapshot
-
-Relevant event types for routes:
-
-- `building.upgrade.started`
-- `building.upgrade.completed`
-- `mining.started`
-- `mining.completed`
-- `factory.blueprint.selected`
-- `factory.production.completed`
-- `inventory.changed`
-
-## Google Auth Examples
-
-`POST /v1/auth/google`
-
-Request:
+`POST /v1/station/buildings`
 
 ```json
 {
-  "id_token": "<google-id-token>"
+  "building_type": "fusion_reactor",
+  "slot_index": 1
 }
 ```
 
-Success response (`200`):
+### Station Upgrade Request
+
+`PATCH /v1/station/buildings/:buildingId`
 
 ```json
 {
-  "authenticated": true,
-  "profile": {
-    "id": "uuid",
-    "display_name": "Google Pilot",
-    "auth_type": "google",
-    "email": "pilot@example.com"
-  }
+  "action": "upgrade"
 }
 ```
 
-Possible errors:
+### Station Snapshot Response Shape
 
-- `401 invalid_google_token`
-- `401 google_email_not_verified`
+Used by:
 
-`POST /v1/settings/account/google-link`
-
-Request:
+- `GET /v1/station`
+- `POST /v1/station/buildings`
+- `PATCH /v1/station/buildings/:buildingId`
 
 ```json
 {
-  "id_token": "<google-id-token>"
+  "id": "station-uuid",
+  "x": 1234,
+  "y": 5678,
+  "inventory": [{ "resource_key": "metals", "amount": 100 }],
+  "buildings": [
+    {
+      "id": "building-uuid",
+      "building_type": "fusion_reactor",
+      "level": 2,
+      "status": "idle",
+      "slot_index": 1
+    }
+  ],
+  "buildable_buildings": [{ "id": "life_support", "name": "Life Support" }]
 }
 ```
 
-Success response (`200`):
+Notes:
+
+- `id`, `x`, `y` are root fields.
+- `building_layout` is removed.
+- Slot ownership is represented in `buildings[].slot_index`.
+
+## 1.4 Map and Asteroids
+
+| Method | Path                     | Purpose                                                         |
+| ------ | ------------------------ | --------------------------------------------------------------- |
+| `GET`  | `/v1/map`                | Return world bounds + stations + asteroids for player map view. |
+| `POST` | `/v1/asteroids/:id/scan` | Persist/update player scan snapshot for asteroid.               |
+
+### Map Snapshot Response Shape
 
 ```json
 {
-  "authenticated": true,
-  "profile": {
-    "id": "uuid",
-    "display_name": "Commander Name",
-    "auth_type": "google",
-    "email": "pilot@example.com"
-  }
+  "world_bounds": {
+    "min_x": 0,
+    "max_x": 10000,
+    "min_y": 0,
+    "max_y": 10000
+  },
+  "stations": [{ "id": "station-uuid", "name": "Commander", "x": 1234, "y": 5678 }],
+  "asteroids": [{ "id": "ast-uuid", "x": 2222, "y": 3333, "is_scanned": false }]
 }
 ```
 
-Possible errors:
+## 1.5 Factory (Current Scaffolding)
+
+| Method | Path                                 | Purpose                                |
+| ------ | ------------------------------------ | -------------------------------------- |
+| `POST` | `/v1/factories/:id/select-blueprint` | Select factory blueprint.              |
+| `POST` | `/v1/factories/:id/catch-up`         | Run factory catch-up for elapsed time. |
+| `POST` | `/v1/factories/:id/clear-blueprint`  | Clear current blueprint.               |
+| `GET`  | `/v1/factories/:id`                  | Read factory job state.                |
+
+These endpoints are currently backed by in-memory job scaffolding.
+
+## 2. Frontend Route Contract (Implemented)
+
+| Path         | Auth Required | Purpose                                               |
+| ------------ | ------------- | ----------------------------------------------------- |
+| `/`          | Conditional   | Redirects to `/station` (auth) or `/login` (no auth). |
+| `/login`     | No            | Sign in / Start now entry page.                       |
+| `/station`   | Yes           | Station canvas home page.                             |
+| `/station/*` | Yes           | Station-area not-found for unknown station subpaths.  |
+| `/map`       | Yes           | World map canvas page.                                |
+| `/account`   | Yes           | Account settings page.                                |
+
+Canonical authenticated routes are `/station`, `/map`, `/account`.
+
+Legacy path notes:
+
+- Legacy prefixed and nested route variants are removed from the canonical route set.
+
+## 3. Error Shape Notes (Selected)
+
+Common route errors include:
 
 - `401 unauthorized`
-- `401 invalid_google_token`
-- `401 google_email_not_verified`
-- `409 google_identity_in_use`
-- `409 email_already_used`
+- `400 invalid_payload`
+- `404 station_not_found` / `building_not_found` / `asteroid_not_found`
+- `409 slot_occupied` / `building_type_already_exists`
+
+Exact error mapping is implemented in route handlers under `apps/api/src/routes`.

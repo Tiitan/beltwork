@@ -1,314 +1,233 @@
 # Database Schema Reference
 
-This document is the human-readable reference for the PostgreSQL schema defined in
-`apps/api/src/db/schema.ts`.
+This document describes the current PostgreSQL schema implemented in
+`apps/api/src/db/schema.ts` and migrations in `apps/api/drizzle/*`.
 
-## Format and location
+## Migration Notes (Station Layout)
 
-- Location: `docs/database.md`
-- Format: one section per table with:
-  - purpose
-  - key relationships and constraints
-  - column-by-column reference
+- `0004_stormy_mimic.sql` introduced `stations.building_layout` (`jsonb`) during the temporary
+  station-slot layout phase.
+- `0005_lumpy_lilandra.sql` migrated slot ownership to `station_buildings.slot_index`, enforced
+  slot constraints, and dropped `stations.building_layout`.
+
+Current source of truth: slot position is persisted on each building row via
+`station_buildings.slot_index`.
 
 ## Enums
 
 ### `auth_type`
 
-- `guest`: temporary/anonymous account created by `Start now`
-- `local`: account with email/password credentials
-- `google`: account linked/authenticated through Google identity
+- `guest`: temporary account created with Start now
+- `local`: account with email/password
+- `google`: account linked/authenticated through Google
 
 ## Tables
 
 ### `players`
 
-Purpose: Player identity profile and authentication mode.
+Purpose: player profile and auth mode.
 
 Key constraints:
 
 - Primary key: `id`
 - Unique email when present (`email IS NOT NULL`)
 
-| Column          | Type           | Description                                          |
-| --------------- | -------------- | ---------------------------------------------------- |
-| `id`            | `uuid`         | Player identifier.                                   |
-| `display_name`  | `text`         | Player-facing name (renameable).                     |
-| `email`         | `text \| null` | Login email for local accounts; nullable for guests. |
-| `password_hash` | `text \| null` | Password hash for local accounts; null for guests.   |
-| `auth_type`     | `auth_type`    | Identity mode (`guest`, `local`, or `google`).       |
-| `created_at`    | `timestamptz`  | Creation time (UTC).                                 |
-| `updated_at`    | `timestamptz`  | Last profile update time (UTC).                      |
-
-Note: `players.email` is not the sole OAuth linkage key. External identities are tracked in
-`player_identities` using provider stable user IDs (for Google, `sub`).
+| Column          | Type           | Description                      |
+| --------------- | -------------- | -------------------------------- |
+| `id`            | `uuid`         | Player id.                       |
+| `display_name`  | `text`         | Display name.                    |
+| `email`         | `text \| null` | Email for local/google accounts. |
+| `password_hash` | `text \| null` | Password hash for local auth.    |
+| `auth_type`     | `auth_type`    | `guest`, `local`, or `google`.   |
+| `created_at`    | `timestamptz`  | Creation timestamp.              |
+| `updated_at`    | `timestamptz`  | Last update timestamp.           |
 
 ### `player_identities`
 
-Purpose: Mapping between internal players and external identity providers.
+Purpose: provider identity mapping (currently Google).
 
 Key constraints:
 
 - Primary key: `id`
 - Foreign key: `player_id -> players.id`
 - Unique provider identity: `(provider, provider_user_id)`
-- Lookup index: `player_id`
 
-| Column             | Type           | Description                                 |
-| ------------------ | -------------- | ------------------------------------------- |
-| `id`               | `uuid`         | Identity mapping identifier.                |
-| `player_id`        | `uuid`         | Linked player id.                           |
-| `provider`         | `text`         | Identity provider key (currently `google`). |
-| `provider_user_id` | `text`         | Stable provider user id (Google `sub`).     |
-| `email`            | `text \| null` | Last known provider email.                  |
-| `created_at`       | `timestamptz`  | Mapping creation timestamp.                 |
-| `updated_at`       | `timestamptz`  | Mapping update timestamp.                   |
+| Column             | Type           | Description                      |
+| ------------------ | -------------- | -------------------------------- |
+| `id`               | `uuid`         | Mapping id.                      |
+| `player_id`        | `uuid`         | Linked player id.                |
+| `provider`         | `text`         | Provider key (`google`).         |
+| `provider_user_id` | `text`         | Stable provider user id (`sub`). |
+| `email`            | `text \| null` | Last known provider email.       |
+| `created_at`       | `timestamptz`  | Creation timestamp.              |
+| `updated_at`       | `timestamptz`  | Last update timestamp.           |
 
 ### `stations`
 
-Purpose: Main station aggregate root for simulation and map placement.
+Purpose: station aggregate root and world coordinates.
 
 Key constraints:
 
 - Primary key: `id`
 - Foreign key: `player_id -> players.id`
-- One station per player (`player_id` unique)
+- One station per player: unique `(player_id)`
 - Coordinate index: `(x, y)`
 
-| Column              | Type          | Description                                                                       |
-| ------------------- | ------------- | --------------------------------------------------------------------------------- |
-| `id`                | `uuid`        | Station identifier.                                                               |
-| `player_id`         | `uuid`        | Owner player id.                                                                  |
-| `x`                 | `integer`     | Station X coordinate on world map.                                                |
-| `y`                 | `integer`     | Station Y coordinate on world map.                                                |
-| `spawned_at`        | `timestamptz` | Station spawn timestamp.                                                          |
-| `last_simulated_at` | `timestamptz` | Station-wide simulation cursor used for catch-up on read/action/event processing. |
-| `created_at`        | `timestamptz` | Row creation timestamp.                                                           |
-| `updated_at`        | `timestamptz` | Row update timestamp.                                                             |
+| Column              | Type          | Description            |
+| ------------------- | ------------- | ---------------------- |
+| `id`                | `uuid`        | Station id.            |
+| `player_id`         | `uuid`        | Owner player id.       |
+| `x`                 | `integer`     | World X coordinate.    |
+| `y`                 | `integer`     | World Y coordinate.    |
+| `spawned_at`        | `timestamptz` | Spawn timestamp.       |
+| `last_simulated_at` | `timestamptz` | Simulation cursor.     |
+| `created_at`        | `timestamptz` | Creation timestamp.    |
+| `updated_at`        | `timestamptz` | Last update timestamp. |
+
+Note: `stations` no longer stores building placement (`building_layout` removed in `0005`).
 
 ### `station_buildings`
 
-Purpose: Buildings owned by a station, with upgrade state inferred from
-`upgrade_started_at`.
+Purpose: buildings attached to a station.
 
-Status inference rule:
+Status inference:
 
-- `upgrade_started_at != null`: upgrade in progress
-- `upgrade_started_at == null`: no active upgrade running
+- `upgrade_started_at IS NULL` -> `idle`
+- `upgrade_started_at IS NOT NULL` -> `upgrading`
 
 Key constraints:
 
 - Primary key: `id`
 - Foreign key: `station_id -> stations.id`
-- Unique per station/type: `(station_id, building_type)`
+- Unique slot per station: `(station_id, slot_index)`
+- Unique type per station: `(station_id, building_type)`
+- Slot range check: `slot_index BETWEEN 1 AND 10`
 
-| Column               | Type                  | Description                           |
-| -------------------- | --------------------- | ------------------------------------- |
-| `id`                 | `uuid`                | Building row identifier.              |
-| `station_id`         | `uuid`                | Owning station id.                    |
-| `building_type`      | `text`                | Building type key from game config.   |
-| `level`              | `integer`             | Current building level (starts at 1). |
-| `upgrade_started_at` | `timestamptz \| null` | Upgrade start timestamp.              |
-| `created_at`         | `timestamptz`         | Row creation timestamp.               |
-| `updated_at`         | `timestamptz`         | Row update timestamp.                 |
+| Column               | Type                  | Description                    |
+| -------------------- | --------------------- | ------------------------------ |
+| `id`                 | `uuid`                | Building row id.               |
+| `station_id`         | `uuid`                | Owning station id.             |
+| `slot_index`         | `integer`             | Occupied station slot (1..10). |
+| `building_type`      | `text`                | Building type key.             |
+| `level`              | `integer`             | Building level.                |
+| `upgrade_started_at` | `timestamptz \| null` | Upgrade start timestamp.       |
+| `created_at`         | `timestamptz`         | Creation timestamp.            |
+| `updated_at`         | `timestamptz`         | Last update timestamp.         |
 
 ### `station_inventory`
 
-Purpose: Resource amounts held by station, one row per resource key.
+Purpose: per-station inventory balances.
 
 Key constraints:
 
 - Primary key: `id`
 - Foreign key: `station_id -> stations.id`
-- Unique resource row per station: `(station_id, resource_key)`
-- Non-negative amount check (`amount >= 0`)
+- Unique per resource per station: `(station_id, resource_key)`
+- Non-negative amount check: `amount >= 0`
 
-| Column         | Type            | Description                                         |
-| -------------- | --------------- | --------------------------------------------------- |
-| `id`           | `uuid`          | Inventory row identifier.                           |
-| `station_id`   | `uuid`          | Owning station id.                                  |
-| `resource_key` | `text`          | Resource key from config (e.g. metals, components). |
-| `amount`       | `numeric(20,4)` | Resource quantity using fixed precision.            |
-| `created_at`   | `timestamptz`   | Row creation timestamp.                             |
-| `updated_at`   | `timestamptz`   | Row update timestamp.                               |
+| Column         | Type            | Description            |
+| -------------- | --------------- | ---------------------- |
+| `id`           | `uuid`          | Inventory row id.      |
+| `station_id`   | `uuid`          | Owning station id.     |
+| `resource_key` | `text`          | Resource key.          |
+| `amount`       | `numeric(20,4)` | Quantity.              |
+| `created_at`   | `timestamptz`   | Creation timestamp.    |
+| `updated_at`   | `timestamptz`   | Last update timestamp. |
 
 ### `asteroid`
 
-Purpose: Runtime world asteroid instances with coordinates and depletion state.
+Purpose: runtime asteroid entities in world space.
 
 Key constraints:
 
 - Primary key: `id`
-- Indexed for discovery/filtering: `(is_depleted, template_id)` and `(x, y)`
-- Non-negative units check (`remaining_units >= 0`)
+- Indexes: `(is_depleted, template_id)`, `(x, y)`
+- Non-negative units check: `remaining_units >= 0`
 
-| Column            | Type          | Description                                          |
-| ----------------- | ------------- | ---------------------------------------------------- |
-| `id`              | `uuid`        | Asteroid instance identifier.                        |
-| `template_id`     | `text`        | Template key from asteroid config.                   |
-| `x`               | `integer`     | Asteroid X coordinate.                               |
-| `y`               | `integer`     | Asteroid Y coordinate.                               |
-| `remaining_units` | `integer`     | Remaining extractable units.                         |
-| `seed`            | `text`        | Seed used for deterministic generation/distribution. |
-| `spawned_at`      | `timestamptz` | Spawn timestamp.                                     |
-| `is_depleted`     | `boolean`     | No further extraction should occur (soft delete)     |
-| `created_at`      | `timestamptz` | Row creation timestamp.                              |
-| `updated_at`      | `timestamptz` | Row update timestamp.                                |
+| Column            | Type          | Description                  |
+| ----------------- | ------------- | ---------------------------- |
+| `id`              | `uuid`        | Asteroid id.                 |
+| `template_id`     | `text`        | Template key from config.    |
+| `x`               | `integer`     | World X coordinate.          |
+| `y`               | `integer`     | World Y coordinate.          |
+| `remaining_units` | `integer`     | Remaining extractable units. |
+| `seed`            | `text`        | Generation seed.             |
+| `spawned_at`      | `timestamptz` | Spawn timestamp.             |
+| `is_depleted`     | `boolean`     | Depletion flag.              |
+| `created_at`      | `timestamptz` | Creation timestamp.          |
+| `updated_at`      | `timestamptz` | Last update timestamp.       |
 
 ### `scanned_asteroids`
 
-Purpose: Per-player asteroid scan snapshots used for map visibility/detail state.
-
-Latest-only rule:
-
-- One row per `(player_id, asteroid_id)` pair.
-- Re-scan should overwrite this row to keep only the latest snapshot.
+Purpose: per-player asteroid scan snapshot.
 
 Key constraints:
 
 - Primary key: `id`
-- Foreign keys:
-  - `player_id -> players.id`
-  - `asteroid_id -> asteroid.id`
-- Unique latest-snapshot key: `(player_id, asteroid_id)`
-- Lookup indexes: `player_id`, `asteroid_id`
-- Non-negative units check (`remaining_units >= 0`)
+- Foreign keys: `player_id -> players.id`, `asteroid_id -> asteroid.id`
+- Unique latest snapshot key: `(player_id, asteroid_id)`
+- Indexes: `player_id`, `asteroid_id`
+- Non-negative units check: `remaining_units >= 0`
 
-| Column            | Type          | Description                                                                |
-| ----------------- | ------------- | -------------------------------------------------------------------------- |
-| `id`              | `uuid`        | Snapshot row identifier.                                                   |
-| `player_id`       | `uuid`        | Player who performed the scan.                                             |
-| `asteroid_id`     | `uuid`        | Asteroid that was scanned.                                                 |
-| `remaining_units` | `integer`     | Snapshot value at scan time (not guaranteed to match live asteroid value). |
-| `scanned_at`      | `timestamptz` | Explicit scan timestamp used to track staleness/history point-in-time.     |
-| `created_at`      | `timestamptz` | Row creation timestamp.                                                    |
-| `updated_at`      | `timestamptz` | Row update timestamp.                                                      |
+| Column            | Type          | Description                   |
+| ----------------- | ------------- | ----------------------------- |
+| `id`              | `uuid`        | Snapshot id.                  |
+| `player_id`       | `uuid`        | Player id.                    |
+| `asteroid_id`     | `uuid`        | Asteroid id.                  |
+| `remaining_units` | `integer`     | Remaining units at scan time. |
+| `scanned_at`      | `timestamptz` | Scan timestamp.               |
+| `created_at`      | `timestamptz` | Creation timestamp.           |
+| `updated_at`      | `timestamptz` | Last update timestamp.        |
 
 ### `mining_operations`
 
-Purpose: Track mining runs from station to asteroid and catch-up processing state.
-
-Lifecycle rule:
-
-- Open operation: `completed_at IS NULL`
-- Closed operation: `completed_at IS NOT NULL`
+Purpose: mining operation lifecycle state.
 
 Key constraints:
 
 - Primary key: `id`
-- Foreign keys:
-  - `station_id -> stations.id`
-  - `asteroid_id -> asteroid.id`
-- Open-operation/terminal timestamp index: `(station_id, completed_at)`
-- Completed index: `(completed_at)`
-- Due-time index: `(due_at)`
-- One open operation per asteroid: unique `(asteroid_id)` where `completed_at IS NULL`
+- Foreign keys: `station_id -> stations.id`, `asteroid_id -> asteroid.id`
+- Indexes: `(station_id, completed_at)`, `(completed_at)`, `(due_at)`
+- Unique open op per asteroid: unique `(asteroid_id)` where `completed_at IS NULL`
 - Unique idempotency key when present
-
-| Column                | Type                  | Description                                  |
-| --------------------- | --------------------- | -------------------------------------------- |
-| `id`                  | `uuid`                | Mining operation identifier.                 |
-| `station_id`          | `uuid`                | Owning station id.                           |
-| `asteroid_id`         | `uuid`                | Target asteroid id.                          |
-| `started_at`          | `timestamptz`         | Start timestamp.                             |
-| `completed_at`        | `timestamptz \| null` | Terminal timestamp (!=null: soft delete)     |
-| `due_at`              | `timestamptz \| null` | Next due time for scheduled progression.     |
-| `rig_power`           | `integer`             | Effective rig strength multiplier input.     |
-| `distance_multiplier` | `numeric(12,6)`       | Runtime distance-based production modifier.  |
-| `idempotency_key`     | `text \| null`        | Optional dedupe key for retry-safe commands. |
-| `created_at`          | `timestamptz`         | Row creation timestamp.                      |
-| `updated_at`          | `timestamptz`         | Row update timestamp.                        |
 
 ### `factory_jobs`
 
-Purpose: Continuous production state for station factories.
-
-Lifecycle rule:
-
-- Open job: `completed_at IS NULL`
-- Closed job: `completed_at IS NOT NULL`
-- No pause state: jobs either continue, get canceled, or auto-close on completion/insufficient conditions
+Purpose: factory production job state.
 
 Key constraints:
 
 - Primary key: `id`
-- Foreign keys:
-  - `station_id -> stations.id`
-  - `factory_building_id -> station_buildings.id` (nullable)
-- Station/completion index: `(station_id, completed_at)`
-- Completed index: `(completed_at)`
-- Due-time index: `(due_at)`
+- Foreign keys: `station_id -> stations.id`, `factory_building_id -> station_buildings.id`
+- Indexes: `(station_id, completed_at)`, `(completed_at)`, `(due_at)`
 - Unique idempotency key when present
-
-| Column                | Type                  | Description                                                         |
-| --------------------- | --------------------- | ------------------------------------------------------------------- |
-| `id`                  | `uuid`                | Factory job identifier.                                             |
-| `station_id`          | `uuid`                | Owning station id.                                                  |
-| `factory_building_id` | `uuid \| null`        | Optional specific building executing the job.                       |
-| `blueprint_key`       | `text \| null`        | Selected blueprint key.                                             |
-| `selected_at`         | `timestamptz`         | Time blueprint was selected/started.                                |
-| `due_at`              | `timestamptz \| null` | Next due time for production completion/event.                      |
-| `cycles_completed`    | `integer`             | Count of completed production cycles.                               |
-| `target_cycles`       | `integer \| null`     | Queue stop target in cycles; `null` means infinite production.      |
-| `completed_at`        | `timestamptz \| null` | Terminal timestamp for canceled/finished jobs; `null` means active. |
-| `idempotency_key`     | `text \| null`        | Optional dedupe key for retry-safe commands.                        |
-| `created_at`          | `timestamptz`         | Row creation timestamp.                                             |
-| `updated_at`          | `timestamptz`         | Row update timestamp.                                               |
 
 ### `domain_events`
 
-Purpose: Append-only scheduled/processed domain events for worker and catch-up flows.
+Purpose: append-only due/processed domain events.
 
 Key constraints:
 
 - Primary key: `id`
 - Foreign key: `station_id -> stations.id` (nullable)
-- Worker lookup index: `(due_at, processed_at)`
+- Index: `(due_at, processed_at)`
 - Unique idempotency key
-
-| Column            | Type                  | Description                                         |
-| ----------------- | --------------------- | --------------------------------------------------- |
-| `id`              | `uuid`                | Event row identifier.                               |
-| `station_id`      | `uuid \| null`        | Related station; nullable for global/system events. |
-| `event_type`      | `text`                | Event name (e.g. `mining.completed`).               |
-| `payload_json`    | `jsonb`               | Event payload document.                             |
-| `idempotency_key` | `text`                | Dedupe key to keep event handling retry-safe.       |
-| `due_at`          | `timestamptz`         | When event becomes eligible for processing.         |
-| `processed_at`    | `timestamptz \| null` | Processing completion timestamp.                    |
-| `created_at`      | `timestamptz`         | Event creation timestamp.                           |
 
 ### `simulation_locks`
 
-Purpose: Optional explicit station-level lock rows for simulation/worker coordination.
+Purpose: optional station-level simulation locks.
 
 Key constraints:
 
 - Primary key and foreign key: `station_id -> stations.id`
 
-| Column       | Type          | Description                                   |
-| ------------ | ------------- | --------------------------------------------- |
-| `station_id` | `uuid`        | Locked station id (one lock row per station). |
-| `locked_by`  | `text`        | Lock owner identifier (process/worker id).    |
-| `locked_at`  | `timestamptz` | Lock acquisition timestamp.                   |
-| `expires_at` | `timestamptz` | Lock expiry timestamp.                        |
-
 ### `sessions`
 
-Purpose: Server-side session tracking for signed cookie or opaque token flow.
+Purpose: server-side auth sessions.
 
 Key constraints:
 
 - Primary key: `id`
 - Foreign key: `player_id -> players.id`
 - Unique session token
-- Session lookup indexes on player and expiry/revocation state
-
-| Column          | Type                  | Description                                       |
-| --------------- | --------------------- | ------------------------------------------------- |
-| `id`            | `uuid`                | Session identifier.                               |
-| `player_id`     | `uuid`                | Session owner player id.                          |
-| `session_token` | `text`                | Opaque token value (must be unique).              |
-| `created_at`    | `timestamptz`         | Session creation timestamp.                       |
-| `expires_at`    | `timestamptz`         | Session expiration timestamp.                     |
-| `revoked_at`    | `timestamptz \| null` | Revocation timestamp when session is invalidated. |
-| `last_seen_at`  | `timestamptz \| null` | Last observed activity timestamp.                 |
+- Indexes: `player_id`, `(expires_at, revoked_at)`

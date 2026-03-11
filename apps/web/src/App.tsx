@@ -1,10 +1,13 @@
 import type { SubmitEvent } from 'react'
-import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
+import { Navigate, Outlet, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import './App.css'
+import { StationLayout } from './components/station/StationLayout'
 import { AuthSessionProvider } from './features/auth/AuthSessionProvider'
 import { useAuthSession } from './features/auth/useAuthSession'
 import { StationProvider } from './features/station/StationProvider'
+import { AccountPage } from './pages/AccountPage'
 import { LoginPage } from './pages/LoginPage'
+import { MapPage } from './pages/MapPage'
 import { StationPage } from './pages/StationPage'
 
 /**
@@ -18,7 +21,12 @@ function AppRoutes() {
   const { hasSession, isBootstrapping, startNowAsGuest, signIn, signInWithGoogleToken } =
     useAuthSession()
 
-  const screen = location.pathname.startsWith('/station') ? 'station' : 'login'
+  const screen =
+    location.pathname.startsWith('/station') ||
+    location.pathname.startsWith('/map') ||
+    location.pathname.startsWith('/account')
+      ? 'station'
+      : 'login'
 
   /**
    * Starts a guest session and routes to station view.
@@ -75,17 +83,22 @@ function AppRoutes() {
             }
           />
           <Route
-            path="/station/*"
             element={
               !hasSession ? (
                 <Navigate replace to="/login" />
               ) : (
                 <StationProvider>
-                  <StationPage />
+                  <StationLayout>
+                    <Outlet />
+                  </StationLayout>
                 </StationProvider>
               )
             }
-          />
+          >
+            <Route path="/station/*" element={<StationPage />} />
+            <Route path="/map" element={<MapPage />} />
+            <Route path="/account" element={<AccountPage />} />
+          </Route>
           <Route path="*" element={<Navigate replace to={hasSession ? '/station' : '/login'} />} />
         </Routes>
       </div>

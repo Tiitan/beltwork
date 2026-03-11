@@ -32,6 +32,7 @@ export function buildServer(options: BuildServerOptions = {}) {
   app.register(cors, {
     origin: true,
     credentials: true,
+    methods: ['GET', 'HEAD', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
   })
 
   registerHealthRoutes(app, services)

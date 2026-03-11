@@ -1,6 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { fetchMapSnapshot, fetchStationSnapshot } from '../features/station/api'
+import {
+  createStationBuilding,
+  fetchMapSnapshot,
+  fetchStationSnapshot,
+  upgradeStationBuilding,
+} from '../features/station/api'
 import type {
+  BuildableBuildingRow,
   BuildingRow,
   InventoryRow,
   MapElement,
@@ -8,14 +14,12 @@ import type {
   MapSnapshot,
 } from '../types/app'
 
-/**
- * Initial building snapshot used by the station screen.
- */
-const initialBuildings: BuildingRow[] = [
-  { type: 'fusion_reactor', level: 1, status: 'idle' },
-  { type: 'refinery', level: 1, status: 'upgrading' },
-  { type: 'assembler', level: 1, status: 'idle' },
-]
+const defaultWorldBounds = {
+  minX: 0,
+  maxX: 10000,
+  minY: 0,
+  maxY: 10000,
+} as const
 
 /**
  * Manages station dashboard state and derived selections.
@@ -24,16 +28,21 @@ const initialBuildings: BuildingRow[] = [
  */
 export function useStationState() {
   const [selectedElementRef, setSelectedElementRef] = useState<MapElementRef | null>(null)
-  const [selectedBlueprintKey, setSelectedBlueprintKey] = useState('bp_refine_metal_plates')
   const [inventory, setInventory] = useState<InventoryRow[]>([])
   const [playerStation, setPlayerStation] = useState<{ id: string; x: number; y: number } | null>(
     null,
   )
-  const [mapSnapshot, setMapSnapshot] = useState<MapSnapshot>({ stations: [], asteroids: [] })
-  const [buildings] = useState(initialBuildings)
+  const [buildings, setBuildings] = useState<BuildingRow[]>([])
+  const [buildableBuildings, setBuildableBuildings] = useState<BuildableBuildingRow[]>([])
+  const [mapSnapshot, setMapSnapshot] = useState<MapSnapshot>({
+    worldBounds: defaultWorldBounds,
+    stations: [],
+    asteroids: [],
+  })
   const [inventoryError, setInventoryError] = useState<string | null>(null)
   const [mapError, setMapError] = useState<string | null>(null)
   const [isMapLoading, setIsMapLoading] = useState(true)
+  const [isStationActionPending, setIsStationActionPending] = useState(false)
 
   const mapEntities = useMemo<MapElement[]>(
     () => [
@@ -78,36 +87,82 @@ export function useStationState() {
     })
   }, [])
 
+  const applyStationSnapshot = useCallback(
+    (stationSnapshot: Awaited<ReturnType<typeof fetchStationSnapshot>>) => {
+      setInventory(stationSnapshot.inventory)
+      setPlayerStation({
+        id: stationSnapshot.id,
+        x: stationSnapshot.x,
+        y: stationSnapshot.y,
+      })
+      setBuildings(stationSnapshot.buildings)
+      setBuildableBuildings(stationSnapshot.buildableBuildings)
+      setInventoryError(null)
+    },
+    [],
+  )
+
+  const refreshStationSnapshot = useCallback(async () => {
+    const stationSnapshot = await fetchStationSnapshot()
+    applyStationSnapshot(stationSnapshot)
+  }, [applyStationSnapshot])
+
+  const buildBuildingInSlot = useCallback(
+    async (slotIndex: number, buildingType: string) => {
+      setIsStationActionPending(true)
+      try {
+        const stationSnapshot = await createStationBuilding(buildingType, slotIndex)
+        applyStationSnapshot(stationSnapshot)
+      } finally {
+        setIsStationActionPending(false)
+      }
+    },
+    [applyStationSnapshot],
+  )
+
+  const upgradeBuildingById = useCallback(
+    async (buildingId: string) => {
+      setIsStationActionPending(true)
+      try {
+        const stationSnapshot = await upgradeStationBuilding(buildingId)
+        applyStationSnapshot(stationSnapshot)
+      } finally {
+        setIsStationActionPending(false)
+      }
+    },
+    [applyStationSnapshot],
+  )
+
   useEffect(() => {
     let isMounted = true
 
-    async function loadStationInventory() {
+    async function loadStationSnapshot() {
       try {
         const stationSnapshot = await fetchStationSnapshot()
         if (!isMounted) {
           return
         }
 
-        setInventory(stationSnapshot.inventory)
-        setPlayerStation(stationSnapshot.station)
-        setInventoryError(null)
+        applyStationSnapshot(stationSnapshot)
       } catch {
         if (!isMounted) {
           return
         }
 
         setInventory([])
+        setBuildings([])
+        setBuildableBuildings([])
         setPlayerStation(null)
         setInventoryError('unavailable')
       }
     }
 
-    void loadStationInventory()
+    void loadStationSnapshot()
 
     return () => {
       isMounted = false
     }
-  }, [])
+  }, [applyStationSnapshot])
 
   useEffect(() => {
     let isMounted = true
@@ -139,7 +194,7 @@ export function useStationState() {
           return
         }
 
-        setMapSnapshot({ stations: [], asteroids: [] })
+        setMapSnapshot({ worldBounds: defaultWorldBounds, stations: [], asteroids: [] })
         setSelectedElementRef(null)
         setMapError('unavailable')
       } finally {
@@ -166,12 +221,16 @@ export function useStationState() {
     playerAnchor: playerStation,
     mapEntities,
     buildings,
+    buildableBuildings,
+    isStationActionPending,
+    isBuildingPending: isStationActionPending,
     selectedElement,
     selectedElementRef,
-    selectedBlueprintKey,
     setSelectedElementRef,
     clearSelectedElement,
     refreshMapSnapshot,
-    setSelectedBlueprintKey,
+    refreshStationSnapshot,
+    buildBuildingInSlot,
+    upgradeBuildingById,
   }
 }

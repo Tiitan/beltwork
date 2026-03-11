@@ -102,13 +102,58 @@ describe('Login page', () => {
         return {
           ok: true,
           json: async () => ({
-            station: { id: 'st-1', x: 140, y: -25 },
+            id: 'st-1',
+            x: 140,
+            y: -25,
             inventory: [
               { resource_key: 'water', amount: 100 },
               { resource_key: 'metals', amount: 50 },
               { resource_key: 'conductors', amount: 25 },
               { resource_key: 'carbon_materials', amount: 15 },
             ],
+            buildings: [],
+            buildable_buildings: [
+              { id: 'fusion_reactor', name: 'Fusion Reactor' },
+              { id: 'life_support', name: 'Life Support' },
+            ],
+          }),
+        } as Response
+      }
+
+      if (url.endsWith('/v1/map') && init?.method === 'GET') {
+        return {
+          ok: true,
+          json: async () => ({
+            world_bounds: { min_x: 0, max_x: 10000, min_y: 0, max_y: 10000 },
+            stations: [{ id: 'st-1', name: 'Calm Prospector 0421', x: 140, y: -25 }],
+            asteroids: [],
+          }),
+        } as Response
+      }
+
+      if (url.endsWith('/v1/station/buildings') && init?.method === 'POST') {
+        return {
+          ok: true,
+          json: async () => ({
+            id: 'st-1',
+            x: 140,
+            y: -25,
+            inventory: [
+              { resource_key: 'water', amount: 100 },
+              { resource_key: 'metals', amount: 50 },
+              { resource_key: 'conductors', amount: 25 },
+              { resource_key: 'carbon_materials', amount: 15 },
+            ],
+            buildings: [
+              {
+                id: 'building-1',
+                building_type: 'fusion_reactor',
+                level: 1,
+                status: 'idle',
+                slot_index: 1,
+              },
+            ],
+            buildable_buildings: [{ id: 'life_support', name: 'Life Support' }],
           }),
         } as Response
       }
@@ -160,16 +205,52 @@ describe('Login page', () => {
 
     await waitFor(() => expect(window.location.pathname).toBe('/station'))
     expect(screen.getByRole('heading', { level: 1, name: /^station$/i })).toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: /summary/i })).toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: /inventory/i })).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: /buildings/i })).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: /factories/i })).toBeInTheDocument()
+    expect(screen.getByLabelText(/station page canvas/i)).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /^station$/i })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /map/i })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /account settings/i })).toBeInTheDocument()
   })
 
+  it('shows station not found for removed station sections', async () => {
+    sessionExists = true
+    renderAppAt('/station/buildings')
+
+    await waitFor(() => expect(window.location.pathname).toBe('/station/buildings'))
+    expect(screen.getByRole('heading', { name: /station page not found/i })).toBeInTheDocument()
+  })
+
   it('redirects station to login without session', async () => {
     renderAppAt('/station')
+
+    await waitFor(() => expect(window.location.pathname).toBe('/login'))
+    expect(screen.getByRole('heading', { name: /log in/i })).toBeInTheDocument()
+  })
+
+  it('renders map at /map when authenticated', async () => {
+    sessionExists = true
+    renderAppAt('/map')
+
+    await waitFor(() => expect(window.location.pathname).toBe('/map'))
+    expect(screen.getByLabelText(/map page canvas/i)).toBeInTheDocument()
+  })
+
+  it('renders account at /account when authenticated', async () => {
+    sessionExists = true
+    renderAppAt('/account')
+
+    await waitFor(() => expect(window.location.pathname).toBe('/account'))
+    expect(screen.getByRole('heading', { name: /account settings/i })).toBeInTheDocument()
+  })
+
+  it('redirects map to login without session', async () => {
+    renderAppAt('/map')
+
+    await waitFor(() => expect(window.location.pathname).toBe('/login'))
+    expect(screen.getByRole('heading', { name: /log in/i })).toBeInTheDocument()
+  })
+
+  it('redirects account to login without session', async () => {
+    renderAppAt('/account')
 
     await waitFor(() => expect(window.location.pathname).toBe('/login'))
     expect(screen.getByRole('heading', { name: /log in/i })).toBeInTheDocument()
@@ -186,7 +267,9 @@ describe('Login page', () => {
 
     await waitFor(() => expect(window.location.pathname).toBe('/login'))
     expect(confirmSpy).toHaveBeenCalled()
-    expect(screen.getByRole('heading', { name: /log in/i })).toBeInTheDocument()
+    await waitFor(() =>
+      expect(screen.getByRole('heading', { name: /log in/i })).toBeInTheDocument(),
+    )
 
     confirmSpy.mockRestore()
   })
