@@ -119,6 +119,10 @@ export function registerStationRoutes(app: FastifyInstance, services: AppService
         return reply.code(404).send({ error: error.code })
       }
 
+      if (error.code === 'building_already_upgrading') {
+        return reply.code(409).send({ error: error.code })
+      }
+
       return reply.code(400).send({ error: error.code })
     }
   }

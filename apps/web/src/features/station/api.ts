@@ -13,6 +13,7 @@ type StationSnapshotResponse = {
     building_type: string
     level: number
     status: 'idle' | 'upgrading'
+    upgrade_finish_at: string | null
     slot_index: number
   }>
   buildable_buildings: Array<{
@@ -71,6 +72,7 @@ function parseStationSnapshotResponse(payload: StationSnapshotResponse): Station
       type: building.building_type,
       level: building.level,
       status: building.status,
+      upgradeFinishAt: building.upgrade_finish_at,
       slotIndex: building.slot_index,
     })),
     buildableBuildings: payload.buildable_buildings.map((building) => ({

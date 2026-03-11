@@ -150,6 +150,7 @@ describe('Login page', () => {
                 building_type: 'fusion_reactor',
                 level: 1,
                 status: 'idle',
+                upgrade_finish_at: null,
                 slot_index: 1,
               },
             ],

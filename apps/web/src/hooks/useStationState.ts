@@ -20,6 +20,7 @@ const defaultWorldBounds = {
   minY: 0,
   maxY: 10000,
 } as const
+const STATION_UPGRADE_OVERDUE_REFRESH_RETRY_MS = 1_000
 
 /**
  * Manages station dashboard state and derived selections.
@@ -132,6 +133,51 @@ export function useStationState() {
     },
     [applyStationSnapshot],
   )
+
+  useEffect(() => {
+    const upgradingFinishTimes = buildings
+      .filter((building) => building.status === 'upgrading' && building.upgradeFinishAt !== null)
+      .map((building) => Date.parse(building.upgradeFinishAt as string))
+      .filter((value) => Number.isFinite(value))
+
+    if (upgradingFinishTimes.length === 0) {
+      return
+    }
+
+    const earliestFinishAtMs = Math.min(...upgradingFinishTimes)
+    const initialDelayMs = Math.max(0, earliestFinishAtMs - Date.now())
+    let isCancelled = false
+    let timeoutHandle: ReturnType<typeof setTimeout> | undefined
+
+    const scheduleRetry = () => {
+      timeoutHandle = setTimeout(async () => {
+        try {
+          await refreshStationSnapshot()
+        } catch {}
+
+        if (!isCancelled) {
+          scheduleRetry()
+        }
+      }, STATION_UPGRADE_OVERDUE_REFRESH_RETRY_MS)
+    }
+
+    timeoutHandle = setTimeout(async () => {
+      try {
+        await refreshStationSnapshot()
+      } catch {}
+
+      if (!isCancelled) {
+        scheduleRetry()
+      }
+    }, initialDelayMs)
+
+    return () => {
+      isCancelled = true
+      if (timeoutHandle) {
+        clearTimeout(timeoutHandle)
+      }
+    }
+  }, [buildings, refreshStationSnapshot])
 
   useEffect(() => {
     let isMounted = true

@@ -14,6 +14,7 @@ export type BuildingRow = {
   type: string
   level: number
   status: 'idle' | 'upgrading'
+  upgradeFinishAt: string | null
   slotIndex: number
 }
 

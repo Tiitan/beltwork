@@ -1,5 +1,11 @@
 import { and, asc, eq, sql } from 'drizzle-orm'
-import { asteroid, stationBuildings, stationInventory, stations } from '../db/schema.js'
+import {
+  asteroid,
+  domainEvents,
+  stationBuildings,
+  stationInventory,
+  stations,
+} from '../db/schema.js'
 import { loadMapConfig } from '../map/config.js'
 import { findPointWithFallback } from '../map/placement.js'
 import { startupResources } from '../station/newStationConfig.js'
@@ -7,6 +13,8 @@ import type { AppServices, StationSnapshotResponse } from '../types/api.js'
 
 const STATION_SPAWN_MAX_ATTEMPTS = 5_000
 const STATION_SLOT_COUNT = 10
+export const BUILDING_UPGRADE_DURATION_MS = 60_000
+export const STATION_BUILDING_UPGRADE_FINALIZE_EVENT_TYPE = 'station.building.upgrade.finalize.v1'
 
 const temporaryBuildableBuildings = [
   { id: 'fusion_reactor', name: 'Fusion Reactor' },
@@ -29,6 +37,7 @@ export class StationBuildError extends Error {
     | 'unsupported_building_type'
     | 'building_type_already_exists'
     | 'building_not_found'
+    | 'building_already_upgrading'
 
   constructor(code: StationBuildError['code']) {
     super(code)
@@ -192,6 +201,9 @@ export async function getStationSnapshotForPlayer(
       building_type: row.building_type,
       level: row.level,
       status: row.upgrade_started_at ? 'upgrading' : 'idle',
+      upgrade_finish_at: row.upgrade_started_at
+        ? new Date(row.upgrade_started_at.getTime() + BUILDING_UPGRADE_DURATION_MS).toISOString()
+        : null,
       slot_index: row.slot_index,
     })),
     buildable_buildings: resolveBuildableBuildings(buildingTypes),
@@ -308,22 +320,58 @@ export async function upgradeStationBuildingForPlayer(
     throw new StationBuildError('station_not_found')
   }
 
-  const [updatedBuilding] = await services.db
-    .update(stationBuildings)
-    .set({
-      level: sql`${stationBuildings.level} + 1`,
-      updatedAt: new Date(),
-    })
-    .where(
-      and(eq(stationBuildings.id, input.buildingId), eq(stationBuildings.stationId, stationRow.id)),
-    )
-    .returning({
-      id: stationBuildings.id,
-    })
+  const now = new Date()
+  const dueAt = new Date(now.getTime() + BUILDING_UPGRADE_DURATION_MS)
+  const upgradeStartedAtIso = now.toISOString()
+  const upgradeEventIdempotencyKey = `station_building_upgrade:${input.buildingId}:${upgradeStartedAtIso}`
 
-  if (!updatedBuilding) {
-    throw new StationBuildError('building_not_found')
-  }
+  await services.db.transaction(async (tx) => {
+    // Serialize concurrent upgrades targeting the same building row.
+    await tx.execute(
+      sql`select id from station_buildings where id = ${input.buildingId} and station_id = ${stationRow.id} for update`,
+    )
+
+    const [buildingRow] = await tx
+      .select({
+        id: stationBuildings.id,
+        upgradeStartedAt: stationBuildings.upgradeStartedAt,
+      })
+      .from(stationBuildings)
+      .where(
+        and(
+          eq(stationBuildings.id, input.buildingId),
+          eq(stationBuildings.stationId, stationRow.id),
+        ),
+      )
+      .limit(1)
+
+    if (!buildingRow) {
+      throw new StationBuildError('building_not_found')
+    }
+
+    if (buildingRow.upgradeStartedAt) {
+      throw new StationBuildError('building_already_upgrading')
+    }
+
+    await tx
+      .update(stationBuildings)
+      .set({
+        upgradeStartedAt: now,
+        updatedAt: now,
+      })
+      .where(eq(stationBuildings.id, input.buildingId))
+
+    await tx.insert(domainEvents).values({
+      stationId: stationRow.id,
+      eventType: STATION_BUILDING_UPGRADE_FINALIZE_EVENT_TYPE,
+      payloadJson: {
+        building_id: input.buildingId,
+        upgrade_started_at: upgradeStartedAtIso,
+      },
+      idempotencyKey: upgradeEventIdempotencyKey,
+      dueAt,
+    })
+  })
 
   const snapshot = await getStationSnapshotForPlayer(services, playerId)
   if (!snapshot) {

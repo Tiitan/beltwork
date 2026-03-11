@@ -7,6 +7,7 @@ import { loadImage } from '../../render/loadImage'
 
 const EMPTY_PLATFORM_PATH = '/assets/icons/buildings/empty_platform.png'
 const BUILDING_HIT_CENTER_OFFSET_Y_FACTOR = 0.3
+const BUILDING_UPGRADE_DURATION_MS = 60_000
 
 export type StationCameraState = {
   scale: number
@@ -53,6 +54,7 @@ export function drawStationScene(
   hoveredSlotIndex: number | null,
   imageCache: Map<string, HTMLImageElement>,
   onImageReady: () => void,
+  nowMs: number,
 ) {
   context.clearRect(0, 0, width, height)
   context.fillStyle = '#030712'
@@ -75,6 +77,7 @@ export function drawStationScene(
       hoveredSlotIndex,
       imageCache,
       onImageReady,
+      nowMs,
     )
   }
 }
@@ -145,6 +148,7 @@ function drawSlotOverlay(
   hoveredSlotIndex: number | null,
   imageCache: Map<string, HTMLImageElement>,
   onImageReady: () => void,
+  nowMs: number,
 ) {
   const { slot } = entity
   const slotX = slot.x * camera.scale + camera.offsetX
@@ -230,6 +234,40 @@ function drawSlotOverlay(
     )
     context.fill()
   }
+
+  if (entity.kind === 'building_slot') {
+    drawUpgradeProgressBar(context, entity, overlayRect, nowMs)
+  }
+}
+
+function drawUpgradeProgressBar(
+  context: CanvasRenderingContext2D,
+  entity: Extract<StationSlotEntity, { kind: 'building_slot' }>,
+  overlayRect: { x: number; y: number; width: number; height: number },
+  nowMs: number,
+) {
+  if (entity.building.status !== 'upgrading' || !entity.building.upgradeFinishAt) {
+    return
+  }
+
+  const finishAtMs = Date.parse(entity.building.upgradeFinishAt)
+  if (!Number.isFinite(finishAtMs)) {
+    return
+  }
+
+  const startedAtMs = finishAtMs - BUILDING_UPGRADE_DURATION_MS
+  const progress = Math.max(0, Math.min(1, (nowMs - startedAtMs) / BUILDING_UPGRADE_DURATION_MS))
+  const barHorizontalPadding = Math.max(4, overlayRect.width * 0.1)
+  const barHeight = Math.max(4, overlayRect.height * 0.06)
+  const barWidth = Math.max(10, overlayRect.width - barHorizontalPadding * 2)
+  const barX = overlayRect.x + barHorizontalPadding
+  const barY = overlayRect.y + Math.max(4, overlayRect.height * 0.06)
+
+  context.fillStyle = 'rgba(15, 23, 42, 0.85)'
+  context.fillRect(barX, barY, barWidth, barHeight)
+
+  context.fillStyle = 'rgba(56, 189, 248, 0.95)'
+  context.fillRect(barX, barY, barWidth * progress, barHeight)
 }
 
 export function findNearestStationSlotHit(

@@ -23,6 +23,9 @@ export function BuildingPanelShell({
   showGoToMap = false,
   children,
 }: BuildingPanelShellProps) {
+  const isUpgrading = data.status === 'upgrading'
+  const isUpgradeDisabled = context.isActionPending || isUpgrading
+
   return (
     <div className="grid gap-3">
       <h3 className="text-lg text-sky-100">{title}</h3>
@@ -41,13 +44,13 @@ export function BuildingPanelShell({
       <div className="grid gap-2 sm:grid-cols-2">
         <button
           type="button"
-          disabled={context.isActionPending}
+          disabled={isUpgradeDisabled}
           className="rounded-md border border-slate-300/35 bg-slate-800/75 px-3 py-2 text-sm text-slate-100 transition hover:bg-slate-700/80 disabled:cursor-not-allowed disabled:opacity-60"
           onClick={() => {
             void context.onUpgradeBuilding(data.buildingId)
           }}
         >
-          {context.isActionPending ? 'Upgrading...' : 'Upgrade'}
+          {isUpgradeDisabled ? 'Upgrading...' : 'Upgrade'}
         </button>
 
         {showGoToMap ? (

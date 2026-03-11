@@ -41,6 +41,7 @@ export type StationSnapshotResponse = {
     building_type: string
     level: number
     status: 'idle' | 'upgrading'
+    upgrade_finish_at: string | null
     slot_index: number
   }>
   buildable_buildings: Array<{

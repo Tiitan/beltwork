@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { pool } from '../db/client.js'
-import { buildServer } from '../server.js'
+import { processDueDomainEventsOnce } from '../services/domain-events.service.js'
+import { buildServer, buildServerWithServices } from '../server.js'
 import { clearTestDatabase } from '../test/testDatabase.js'
 
 function getSessionCookiePair(setCookieHeader: string | string[] | undefined): string {
@@ -213,6 +214,7 @@ describe('station routes', () => {
           building_type: 'fusion_reactor',
           level: 1,
           status: 'idle',
+          upgrade_finish_at: null,
           slot_index: 1,
         },
       ])
@@ -411,7 +413,7 @@ describe('station routes', () => {
   )
 
   it.runIf(process.env.RUN_DB_TESTS === '1')(
-    'upgrades a building level instantly for the station owner',
+    'starts timed upgrade event and returns upgrading status with finish time',
     async () => {
       await clearTestDatabase()
 
@@ -457,11 +459,166 @@ describe('station routes', () => {
         {
           id: buildingId,
           building_type: 'storage',
-          level: 2,
-          status: 'idle',
+          level: 1,
+          status: 'upgrading',
+          upgrade_finish_at: expect.any(String),
           slot_index: 2,
         },
       ])
+
+      const eventsResult = await pool.query(
+        'select event_type, payload_json, due_at from domain_events where station_id = $1',
+        [payload.id],
+      )
+      expect(eventsResult.rows).toHaveLength(1)
+      const eventRow = eventsResult.rows[0]
+      expect(eventRow?.event_type).toBe('station.building.upgrade.finalize.v1')
+      expect(eventRow?.payload_json).toMatchObject({
+        building_id: buildingId,
+        upgrade_started_at: expect.any(String),
+      })
+      expect(new Date(eventRow?.due_at).getTime()).toBeGreaterThan(Date.now())
+    },
+  )
+
+  it.runIf(process.env.RUN_DB_TESTS === '1')(
+    'returns 409 when upgrading a building that is already upgrading',
+    async () => {
+      await clearTestDatabase()
+
+      const app = buildServer({
+        checkReadiness: async () => {},
+      })
+
+      const startNowResponse = await app.inject({
+        method: 'POST',
+        url: '/v1/session/start-now',
+      })
+      const cookiePair = getSessionCookiePair(startNowResponse.headers['set-cookie'])
+
+      const buildResponse = await app.inject({
+        method: 'POST',
+        url: '/v1/station/buildings',
+        headers: {
+          cookie: cookiePair,
+        },
+        payload: {
+          building_type: 'storage',
+          slot_index: 2,
+        },
+      })
+
+      expect(buildResponse.statusCode).toBe(200)
+      const buildingId = buildResponse.json().buildings[0].id as string
+
+      const firstUpgradeResponse = await app.inject({
+        method: 'PATCH',
+        url: `/v1/station/buildings/${buildingId}`,
+        headers: {
+          cookie: cookiePair,
+        },
+        payload: {
+          action: 'upgrade',
+        },
+      })
+      expect(firstUpgradeResponse.statusCode).toBe(200)
+
+      const secondUpgradeResponse = await app.inject({
+        method: 'PATCH',
+        url: `/v1/station/buildings/${buildingId}`,
+        headers: {
+          cookie: cookiePair,
+        },
+        payload: {
+          action: 'upgrade',
+        },
+      })
+
+      expect(secondUpgradeResponse.statusCode).toBe(409)
+      expect(secondUpgradeResponse.json()).toEqual({ error: 'building_already_upgrading' })
+
+      const eventCountResult = await pool.query(
+        'select count(*)::integer as count from domain_events',
+      )
+      expect(eventCountResult.rows[0]?.count).toBe(1)
+    },
+  )
+
+  it.runIf(process.env.RUN_DB_TESTS === '1')(
+    'finalizes due upgrade events, increments level, and deletes the event row',
+    async () => {
+      await clearTestDatabase()
+
+      const { app, services } = buildServerWithServices({
+        checkReadiness: async () => {},
+      })
+
+      const startNowResponse = await app.inject({
+        method: 'POST',
+        url: '/v1/session/start-now',
+      })
+      const cookiePair = getSessionCookiePair(startNowResponse.headers['set-cookie'])
+
+      const buildResponse = await app.inject({
+        method: 'POST',
+        url: '/v1/station/buildings',
+        headers: {
+          cookie: cookiePair,
+        },
+        payload: {
+          building_type: 'storage',
+          slot_index: 2,
+        },
+      })
+
+      expect(buildResponse.statusCode).toBe(200)
+      const buildingId = buildResponse.json().buildings[0].id as string
+
+      const upgradeResponse = await app.inject({
+        method: 'PATCH',
+        url: `/v1/station/buildings/${buildingId}`,
+        headers: {
+          cookie: cookiePair,
+        },
+        payload: {
+          action: 'upgrade',
+        },
+      })
+      expect(upgradeResponse.statusCode).toBe(200)
+
+      await processDueDomainEventsOnce(services, new Date(Date.now() + 61_000))
+
+      const stationAfterFinalizeResponse = await app.inject({
+        method: 'GET',
+        url: '/v1/station',
+        headers: {
+          cookie: cookiePair,
+        },
+      })
+      expect(stationAfterFinalizeResponse.statusCode).toBe(200)
+      expect(stationAfterFinalizeResponse.json().buildings).toEqual([
+        {
+          id: buildingId,
+          building_type: 'storage',
+          level: 2,
+          status: 'idle',
+          upgrade_finish_at: null,
+          slot_index: 2,
+        },
+      ])
+
+      const buildingStateResult = await pool.query(
+        'select level, upgrade_started_at from station_buildings where id = $1',
+        [buildingId],
+      )
+      expect(buildingStateResult.rows).toHaveLength(1)
+      expect(buildingStateResult.rows[0]?.level).toBe(2)
+      expect(buildingStateResult.rows[0]?.upgrade_started_at).toBeNull()
+
+      const eventCountResult = await pool.query(
+        'select count(*)::integer as count from domain_events',
+      )
+      expect(eventCountResult.rows[0]?.count).toBe(0)
     },
   )
 

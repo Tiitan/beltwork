@@ -1,5 +1,6 @@
 import { env } from './config.js'
-import { buildServer } from './server.js'
+import { startDomainEventsAgent } from './services/domain-events-agent.service.js'
+import { buildServerWithServices } from './server.js'
 
 /**
  * Boots the API server process with configured host and port.
@@ -7,7 +8,11 @@ import { buildServer } from './server.js'
  * @returns Resolves when the server starts listening.
  */
 async function start() {
-  const server = buildServer()
+  const { app: server, services } = buildServerWithServices()
+  const stopDomainEventsAgent = startDomainEventsAgent(services)
+  server.addHook('onClose', async () => {
+    stopDomainEventsAgent()
+  })
 
   try {
     await server.listen({

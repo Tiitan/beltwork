@@ -112,7 +112,14 @@ describe('StationHomePage', () => {
   it('opens fusion reactor placeholder panel for occupied slot', async () => {
     const state = buildBaseState({
       buildings: [
-        { id: 'building-1', type: 'fusion_reactor', level: 1, status: 'idle', slotIndex: 1 },
+        {
+          id: 'building-1',
+          type: 'fusion_reactor',
+          level: 1,
+          status: 'idle',
+          upgradeFinishAt: null,
+          slotIndex: 1,
+        },
       ],
     })
 
@@ -131,7 +138,16 @@ describe('StationHomePage', () => {
         { resourceKey: 'water', amount: 100 },
         { resourceKey: 'carbon_materials', amount: 15 },
       ],
-      buildings: [{ id: 'building-1', type: 'storage', level: 2, status: 'idle', slotIndex: 1 }],
+      buildings: [
+        {
+          id: 'building-1',
+          type: 'storage',
+          level: 2,
+          status: 'idle',
+          upgradeFinishAt: null,
+          slotIndex: 1,
+        },
+      ],
     })
 
     renderWithState(state)
@@ -147,7 +163,16 @@ describe('StationHomePage', () => {
   it('calls upgrade action with building id', async () => {
     const upgradeBuildingById = vi.fn(async () => {})
     const state = buildBaseState({
-      buildings: [{ id: 'building-1', type: 'refinery', level: 1, status: 'idle', slotIndex: 1 }],
+      buildings: [
+        {
+          id: 'building-1',
+          type: 'refinery',
+          level: 1,
+          status: 'idle',
+          upgradeFinishAt: null,
+          slotIndex: 1,
+        },
+      ],
       upgradeBuildingById,
     })
 
@@ -162,7 +187,14 @@ describe('StationHomePage', () => {
   it('navigates to map from scanner and survey panel', async () => {
     const state = buildBaseState({
       buildings: [
-        { id: 'building-1', type: 'scanner_survey', level: 1, status: 'idle', slotIndex: 1 },
+        {
+          id: 'building-1',
+          type: 'scanner_survey',
+          level: 1,
+          status: 'idle',
+          upgradeFinishAt: null,
+          slotIndex: 1,
+        },
       ],
     })
 

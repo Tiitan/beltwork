@@ -16,14 +16,18 @@ import { registerMapRoutes } from './routes/map.routes.js'
  * @param options Optional dependency overrides, mainly used by tests.
  * @returns Configured Fastify server instance.
  */
-export function buildServer(options: BuildServerOptions = {}) {
-  const services: AppServices = {
+function createAppServices(options: BuildServerOptions = {}): AppServices {
+  return {
     db,
     env,
     checkReadiness: options.checkReadiness ?? checkDatabaseConnection,
     verifyGoogleIdToken: options.verifyGoogleIdToken ?? createDefaultVerifyGoogleIdToken(env),
     factoryJobs: new Map(),
   }
+}
+
+export function buildServerWithServices(options: BuildServerOptions = {}) {
+  const services = createAppServices(options)
 
   const app = Fastify({
     logger: true,
@@ -41,5 +45,13 @@ export function buildServer(options: BuildServerOptions = {}) {
   registerMapRoutes(app, services)
   registerFactoryRoutes(app, services)
 
+  return {
+    app,
+    services,
+  }
+}
+
+export function buildServer(options: BuildServerOptions = {}) {
+  const { app } = buildServerWithServices(options)
   return app
 }

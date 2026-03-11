@@ -18,6 +18,7 @@ const DRAG_THRESHOLD_TOUCH_PX = 12
 const MIN_SCALE_FACTOR = 0.7
 const MAX_SCALE_FACTOR = 3
 const STATION_BACKGROUND_PATH = '/assets/page/station_map.png'
+const UPGRADE_PROGRESS_TICK_MS = 250
 
 export function StationHomePage() {
   const navigate = useNavigate()
@@ -49,6 +50,12 @@ export function StationHomePage() {
   const [hoveredSlotIndex, setHoveredSlotIndex] = useState<number | null>(null)
   const [hoverPosition, setHoverPosition] = useState<{ x: number; y: number } | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
+  const [sceneNowMs, setSceneNowMs] = useState(() => Date.now())
+
+  const hasUpgradingBuildings = useMemo(
+    () => buildings.some((building) => building.status === 'upgrading'),
+    [buildings],
+  )
 
   const stationEntities = useMemo<StationSlotEntity[]>(() => {
     const buildingBySlotIndex = new Map(buildings.map((building) => [building.slotIndex, building]))
@@ -155,6 +162,21 @@ export function StationHomePage() {
   }, [canvasSize, scale])
 
   useEffect(() => {
+    setSceneNowMs(Date.now())
+    if (!hasUpgradingBuildings) {
+      return
+    }
+
+    const timer = setInterval(() => {
+      setSceneNowMs(Date.now())
+    }, UPGRADE_PROGRESS_TICK_MS)
+
+    return () => {
+      clearInterval(timer)
+    }
+  }, [hasUpgradingBuildings])
+
+  useEffect(() => {
     if (!canvasSize) {
       return
     }
@@ -199,6 +221,7 @@ export function StationHomePage() {
       () => {
         setImageVersion((previous) => previous + 1)
       },
+      sceneNowMs,
     )
   }, [
     canvasSize,
@@ -207,6 +230,7 @@ export function StationHomePage() {
     offset.x,
     offset.y,
     scale,
+    sceneNowMs,
     selectedSlotIndex,
     stationEntities,
   ])
