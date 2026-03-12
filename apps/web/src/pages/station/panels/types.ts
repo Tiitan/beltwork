@@ -1,5 +1,10 @@
 import type { ReactNode } from 'react'
-import type { BuildableBuildingRow, BuildingRow, InventoryRow } from '../../../types/app'
+import type {
+  ActiveMiningOperationRow,
+  BuildableBuildingRow,
+  BuildingRow,
+  InventoryRow,
+} from '../../../types/app'
 import type { StationSlotLayout } from '../slotLayout'
 
 export type StationSlotEntity =
@@ -20,10 +25,14 @@ export type StationSlotEntityRef = {
 export type StationPanelContext = {
   inventory: InventoryRow[]
   buildableBuildings: BuildableBuildingRow[]
+  miningRigCapacity: number
+  activeMiningOperations: ActiveMiningOperationRow[]
+  uiNowMs: number
   isActionPending: boolean
   actionError: string | null
   onBuildBuilding: (slotIndex: number, buildingType: string) => Promise<void>
   onUpgradeBuilding: (buildingId: string) => Promise<void>
+  onRecallMiningOperation: (operationId: string) => Promise<void>
   onGoToMap: () => void
 }
 

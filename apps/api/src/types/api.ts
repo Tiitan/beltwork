@@ -1,6 +1,7 @@
 import type { FactoryJob } from '../factory-jobs/service.js'
 import type { db } from '../db/client.js'
 import type { env } from '../config.js'
+import type { DomainEventHandlerRegistry } from '../services/domain-events/types.js'
 
 export type GoogleIdentityClaims = {
   sub: string
@@ -48,6 +49,20 @@ export type StationSnapshotResponse = {
     id: string
     name: string
   }>
+  mining_rig_capacity: number
+  active_mining_operations: Array<{
+    id: string
+    asteroid_id: string
+    status: 'flying_to_destination' | 'mining' | 'returning'
+    phase_started_at: string
+    phase_finish_at: string | null
+    return_origin_progress: number | null
+    quantity: number
+    quantity_target: number
+    cargo_capacity: number
+    estimated_asteroid_remaining_units: number | null
+    asteroid_remaining_units_at_mining_start: number | null
+  }>
 }
 
 export type MapStationResponse = {
@@ -92,4 +107,5 @@ export type AppServices = {
   checkReadiness: () => Promise<void>
   verifyGoogleIdToken: VerifyGoogleIdToken
   factoryJobs: Map<string, FactoryJob>
+  domainEventHandlers?: DomainEventHandlerRegistry<AppServices>
 }

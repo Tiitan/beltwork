@@ -1,7 +1,9 @@
-import { and, asc, eq, sql } from 'drizzle-orm'
+import { and, asc, eq, inArray, isNull, sql } from 'drizzle-orm'
 import {
   asteroid,
   domainEvents,
+  miningOperations,
+  scannedAsteroids,
   stationBuildings,
   stationInventory,
   stations,
@@ -10,6 +12,11 @@ import { loadMapConfig } from '../map/config.js'
 import { findPointWithFallback } from '../map/placement.js'
 import { startupResources } from '../station/newStationConfig.js'
 import type { AppServices, StationSnapshotResponse } from '../types/api.js'
+import {
+  loadMiningDockRigConfig,
+  miningRigCapacityForLevel,
+  travelDurationMs,
+} from './mining-config.service.js'
 
 const STATION_SPAWN_MAX_ATTEMPTS = 5_000
 const STATION_SLOT_COUNT = 10
@@ -55,6 +62,19 @@ type UpgradeStationBuildingInput = {
 }
 
 const uuidLikePattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+function distanceUnits(
+  stationX: number,
+  stationY: number,
+  asteroidX: number,
+  asteroidY: number,
+): number {
+  return Math.hypot(asteroidX - stationX, asteroidY - stationY)
+}
+
+function clampUnitInterval(value: number): number {
+  return Math.max(0, Math.min(1, value))
+}
 
 function isTemporaryBuildableBuildingId(value: string): value is TemporaryBuildableBuildingId {
   return temporaryBuildableBuildings.some((building) => building.id === value)
@@ -186,6 +206,93 @@ export async function getStationSnapshotForPlayer(
     .from(stationBuildings)
     .where(eq(stationBuildings.stationId, stationRow.id))
     .orderBy(asc(stationBuildings.slotIndex))
+  const activeMiningOperations = await services.db
+    .select({
+      id: miningOperations.id,
+      asteroid_id: miningOperations.asteroidId,
+      status: miningOperations.status,
+      phase_started_at: miningOperations.phaseStartedAt,
+      phase_finish_at: miningOperations.phaseFinishAt,
+      quantity: miningOperations.quantity,
+      quantity_target: miningOperations.quantityTarget,
+      cargo_capacity: miningOperations.cargoCapacity,
+      estimated_asteroid_remaining_units: miningOperations.estimatedAsteroidRemainingUnits,
+      asteroid_remaining_units_at_mining_start:
+        miningOperations.asteroidRemainingUnitsAtMiningStart,
+    })
+    .from(miningOperations)
+    .where(and(eq(miningOperations.stationId, stationRow.id), isNull(miningOperations.completedAt)))
+    .orderBy(asc(miningOperations.startedAt), asc(miningOperations.id))
+
+  const activeOperationAsteroidIds = activeMiningOperations.map(
+    (operation) => operation.asteroid_id,
+  )
+  const operationAsteroidRows =
+    activeOperationAsteroidIds.length === 0
+      ? []
+      : await services.db
+          .select({
+            id: asteroid.id,
+            x: asteroid.x,
+            y: asteroid.y,
+          })
+          .from(asteroid)
+          .where(inArray(asteroid.id, activeOperationAsteroidIds))
+  const operationAsteroidById = new Map(
+    operationAsteroidRows.map((asteroidRow) => [asteroidRow.id, asteroidRow]),
+  )
+  const scanRows =
+    activeOperationAsteroidIds.length === 0
+      ? []
+      : await services.db
+          .select({
+            asteroidId: scannedAsteroids.asteroidId,
+            remainingUnits: scannedAsteroids.remainingUnits,
+          })
+          .from(scannedAsteroids)
+          .where(
+            and(
+              eq(scannedAsteroids.playerId, playerId),
+              inArray(scannedAsteroids.asteroidId, activeOperationAsteroidIds),
+            ),
+          )
+  const scannedRemainingByAsteroidId = new Map(
+    scanRows.map((scanRow) => [scanRow.asteroidId, scanRow.remainingUnits]),
+  )
+
+  const rigConfig = await loadMiningDockRigConfig()
+  const miningDockBuilding = buildingRows.find(
+    (building) => building.building_type === 'mining_docks',
+  )
+  const miningRigCapacity = miningDockBuilding
+    ? miningRigCapacityForLevel(miningDockBuilding.level, rigConfig)
+    : 0
+  const resolveReturnOriginProgress = (operation: (typeof activeMiningOperations)[number]) => {
+    if (operation.status !== 'returning') {
+      return null
+    }
+
+    const asteroidCoordinates = operationAsteroidById.get(operation.asteroid_id)
+    if (!asteroidCoordinates) {
+      return 1
+    }
+
+    const fullTravelMs = travelDurationMs(
+      distanceUnits(stationRow.x, stationRow.y, asteroidCoordinates.x, asteroidCoordinates.y),
+      rigConfig.moveSpeedUnitsPerMin,
+    )
+    if (fullTravelMs <= 0) {
+      return 1
+    }
+
+    const returnPhaseFinishAtMs = operation.phase_finish_at?.getTime()
+    if (typeof returnPhaseFinishAtMs !== 'number' || Number.isNaN(returnPhaseFinishAtMs)) {
+      return 1
+    }
+
+    const currentReturnMs = returnPhaseFinishAtMs - operation.phase_started_at.getTime()
+    return clampUnitInterval(currentReturnMs / fullTravelMs)
+  }
   const buildingTypes = new Set(buildingRows.map((row) => row.building_type))
 
   return {
@@ -205,6 +312,23 @@ export async function getStationSnapshotForPlayer(
         ? new Date(row.upgrade_started_at.getTime() + BUILDING_UPGRADE_DURATION_MS).toISOString()
         : null,
       slot_index: row.slot_index,
+    })),
+    mining_rig_capacity: miningRigCapacity,
+    active_mining_operations: activeMiningOperations.map((operation) => ({
+      id: operation.id,
+      asteroid_id: operation.asteroid_id,
+      status: operation.status as 'flying_to_destination' | 'mining' | 'returning',
+      phase_started_at: operation.phase_started_at.toISOString(),
+      phase_finish_at: operation.phase_finish_at ? operation.phase_finish_at.toISOString() : null,
+      return_origin_progress: resolveReturnOriginProgress(operation),
+      quantity: operation.quantity,
+      quantity_target: operation.quantity_target,
+      cargo_capacity: operation.cargo_capacity,
+      estimated_asteroid_remaining_units:
+        scannedRemainingByAsteroidId.get(operation.asteroid_id) ??
+        operation.estimated_asteroid_remaining_units ??
+        null,
+      asteroid_remaining_units_at_mining_start: operation.asteroid_remaining_units_at_mining_start,
     })),
     buildable_buildings: resolveBuildableBuildings(buildingTypes),
   }

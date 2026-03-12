@@ -51,11 +51,19 @@ function buildBaseState() {
     setSelectedElementRef: vi.fn(),
     clearSelectedElement: vi.fn(),
     refreshMapSnapshot: vi.fn(async () => {}),
+    refreshStationSnapshot: vi.fn(async () => {}),
     inventory: [],
     inventoryError: null,
     buildings: [],
-    selectedBlueprintKey: 'bp_refine_metal_plates',
-    setSelectedBlueprintKey: vi.fn(),
+    buildableBuildings: [],
+    miningRigCapacity: 1,
+    activeMiningOperations: [],
+    uiNowMs: Date.now(),
+    isStationActionPending: false,
+    deployMiningRigToAsteroid: vi.fn(async () => {}),
+    recallMiningOperationById: vi.fn(async () => {}),
+    buildBuildingInSlot: vi.fn(async () => {}),
+    upgradeBuildingById: vi.fn(async () => {}),
   }
   return state
 }

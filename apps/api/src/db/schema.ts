@@ -183,9 +183,17 @@ export const miningOperations = pgTable(
     asteroidId: uuid('asteroid_id')
       .references(() => asteroid.id)
       .notNull(),
+    status: text('status').default('flying_to_destination').notNull(),
     startedAt: timestamp('started_at', { withTimezone: true }).defaultNow().notNull(),
+    phaseStartedAt: timestamp('phase_started_at', { withTimezone: true }).defaultNow().notNull(),
+    phaseFinishAt: timestamp('phase_finish_at', { withTimezone: true }),
     completedAt: timestamp('completed_at', { withTimezone: true }),
     dueAt: timestamp('due_at', { withTimezone: true }),
+    cargoCapacity: integer('cargo_capacity').default(0).notNull(),
+    quantity: integer('quantity').default(0).notNull(),
+    quantityTarget: integer('quantity_target').default(0).notNull(),
+    estimatedAsteroidRemainingUnits: integer('estimated_asteroid_remaining_units'),
+    asteroidRemainingUnitsAtMiningStart: integer('asteroid_remaining_units_at_mining_start'),
     rigPower: integer('rig_power').default(1).notNull(),
     distanceMultiplier: numeric('distance_multiplier', { precision: 12, scale: 6 })
       .default('1')
@@ -198,12 +206,20 @@ export const miningOperations = pgTable(
     index('mining_operations_station_completed_idx').on(table.stationId, table.completedAt),
     index('mining_operations_completed_at_idx').on(table.completedAt),
     index('mining_operations_due_at_idx').on(table.dueAt),
-    uniqueIndex('mining_operations_open_asteroid_unique_idx')
+    index('mining_operations_status_completed_idx').on(table.status, table.completedAt),
+    uniqueIndex('mining_operations_active_asteroid_mining_unique_idx')
       .on(table.asteroidId)
-      .where(sql`${table.completedAt} is null`),
+      .where(sql`${table.completedAt} is null and ${table.status} = 'mining'`),
     uniqueIndex('mining_operations_idempotency_key_unique_idx')
       .on(table.idempotencyKey)
       .where(sql`${table.idempotencyKey} is not null`),
+    check('mining_operations_cargo_capacity_non_negative_chk', sql`${table.cargoCapacity} >= 0`),
+    check('mining_operations_quantity_non_negative_chk', sql`${table.quantity} >= 0`),
+    check('mining_operations_quantity_target_non_negative_chk', sql`${table.quantityTarget} >= 0`),
+    check(
+      'mining_operations_quantity_le_target_chk',
+      sql`${table.quantity} <= ${table.quantityTarget}`,
+    ),
   ],
 )
 

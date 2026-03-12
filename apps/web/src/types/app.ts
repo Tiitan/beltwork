@@ -23,6 +23,22 @@ export type BuildableBuildingRow = {
   name: string
 }
 
+export type MiningOperationStatus = 'flying_to_destination' | 'mining' | 'returning'
+
+export type ActiveMiningOperationRow = {
+  id: string
+  asteroidId: string
+  status: MiningOperationStatus
+  phaseStartedAt: string
+  phaseFinishAt: string | null
+  returnOriginProgress: number | null
+  quantity: number
+  quantityTarget: number
+  cargoCapacity: number
+  estimatedAsteroidRemainingUnits: number | null
+  asteroidRemainingUnitsAtMiningStart: number | null
+}
+
 /**
  * Asteroid entry available for mining selection.
  */

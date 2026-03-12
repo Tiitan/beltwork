@@ -1,5 +1,7 @@
-import { describe, expect, it } from 'vitest'
+import { eq } from 'drizzle-orm'
+import { describe, expect, it, vi } from 'vitest'
 import { db, pool } from '../db/client.js'
+import { domainEvents } from '../db/schema.js'
 import type { AppServices } from '../types/api.js'
 import { clearTestDatabase } from '../test/testDatabase.js'
 import {
@@ -7,9 +9,23 @@ import {
   processDueDomainEventById,
   releaseStationLeaseLock,
 } from './domain-events.service.js'
+import { buildGameDomainEventHandlerRegistry } from './domain-events/game-domain-event-registry.js'
+import type { DomainEventHandlerRegistry } from './domain-events/types.js'
 import { STATION_BUILDING_UPGRADE_FINALIZE_EVENT_TYPE } from './station.service.js'
 
-const services = { db } as unknown as AppServices
+const services = {
+  db,
+  domainEventHandlers: buildGameDomainEventHandlerRegistry(),
+} as unknown as AppServices
+
+function buildTestServices(
+  domainEventHandlers: DomainEventHandlerRegistry<AppServices>,
+): AppServices {
+  return {
+    db,
+    domainEventHandlers,
+  } as unknown as AppServices
+}
 
 async function seedStation(stationId: string, playerId: string) {
   await pool.query(`insert into players (id, display_name, auth_type) values ($1, $2, 'guest')`, [
@@ -20,6 +36,32 @@ async function seedStation(stationId: string, playerId: string) {
     stationId,
     playerId,
   ])
+}
+
+async function insertDomainEvent(params: {
+  eventId: string
+  stationId: string
+  eventType: string
+  payload: Record<string, unknown>
+  dueAt: Date
+}) {
+  await pool.query(
+    `insert into domain_events (id, station_id, event_type, payload_json, idempotency_key, due_at)
+     values ($1, $2, $3, $4::jsonb, $5, $6)`,
+    [
+      params.eventId,
+      params.stationId,
+      params.eventType,
+      JSON.stringify(params.payload),
+      `event-${params.eventId}`,
+      params.dueAt,
+    ],
+  )
+}
+
+async function eventExists(eventId: string): Promise<boolean> {
+  const queryResult = await pool.query(`select id from domain_events where id = $1`, [eventId])
+  return queryResult.rows.length > 0
 }
 
 describe('domain events locks', () => {
@@ -92,6 +134,254 @@ describe('domain events locks', () => {
 })
 
 describe('processDueDomainEventById', () => {
+  it.runIf(process.env.RUN_DB_TESTS === '1')(
+    'dispatches by event type via handler registry',
+    async () => {
+      await clearTestDatabase()
+
+      const stationId = '00000000-0000-0000-0000-000000000140'
+      const playerId = '00000000-0000-0000-0000-000000000040'
+      const eventId = '00000000-0000-0000-0000-000000000340'
+      const eventType = 'tests.domain-events.dispatch.v1'
+      await seedStation(stationId, playerId)
+
+      let handledPayload: unknown = null
+      const testServices = buildTestServices({
+        [eventType]: {
+          requiresStationLock: false,
+          parsePayload(payloadJson) {
+            if (
+              typeof payloadJson === 'object' &&
+              payloadJson !== null &&
+              'value' in payloadJson &&
+              typeof (payloadJson as { value: unknown }).value === 'number'
+            ) {
+              return { value: (payloadJson as { value: number }).value }
+            }
+            return null
+          },
+          async handle(input) {
+            handledPayload = input.payload
+            await input.tx.delete(domainEvents).where(eq(domainEvents.id, input.eventId))
+          },
+        },
+      })
+
+      await insertDomainEvent({
+        eventId,
+        stationId,
+        eventType,
+        payload: { value: 7 },
+        dueAt: new Date('2026-03-11T18:30:00.000Z'),
+      })
+
+      const result = await processDueDomainEventById(
+        testServices,
+        eventId,
+        new Date('2026-03-11T18:30:01.000Z'),
+        { lockedBy: 'agent-test' },
+      )
+
+      expect(result).toBe('processed')
+      expect(handledPayload).toEqual({ value: 7 })
+      expect(await eventExists(eventId)).toBe(false)
+    },
+  )
+
+  it.runIf(process.env.RUN_DB_TESTS === '1')(
+    'warns and deletes unsupported event types',
+    async () => {
+      await clearTestDatabase()
+
+      const stationId = '00000000-0000-0000-0000-000000000141'
+      const playerId = '00000000-0000-0000-0000-000000000041'
+      const eventId = '00000000-0000-0000-0000-000000000341'
+      await seedStation(stationId, playerId)
+
+      const testServices = buildTestServices({})
+      await insertDomainEvent({
+        eventId,
+        stationId,
+        eventType: 'tests.domain-events.unsupported.v1',
+        payload: { anything: true },
+        dueAt: new Date('2026-03-11T18:31:00.000Z'),
+      })
+
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+      try {
+        const result = await processDueDomainEventById(
+          testServices,
+          eventId,
+          new Date('2026-03-11T18:31:01.000Z'),
+          { lockedBy: 'agent-test' },
+        )
+
+        expect(result).toBe('processed')
+        expect(await eventExists(eventId)).toBe(false)
+        expect(warnSpy).toHaveBeenCalledWith(
+          expect.stringContaining('domain_event_unsupported_type'),
+        )
+      } finally {
+        warnSpy.mockRestore()
+      }
+    },
+  )
+
+  it.runIf(process.env.RUN_DB_TESTS === '1')(
+    'warns and deletes events with invalid payload',
+    async () => {
+      await clearTestDatabase()
+
+      const stationId = '00000000-0000-0000-0000-000000000142'
+      const playerId = '00000000-0000-0000-0000-000000000042'
+      const eventId = '00000000-0000-0000-0000-000000000342'
+      const eventType = 'tests.domain-events.invalid-payload.v1'
+      await seedStation(stationId, playerId)
+
+      let handleCalled = false
+      const testServices = buildTestServices({
+        [eventType]: {
+          requiresStationLock: false,
+          parsePayload() {
+            return null
+          },
+          async handle() {
+            handleCalled = true
+          },
+        },
+      })
+
+      await insertDomainEvent({
+        eventId,
+        stationId,
+        eventType,
+        payload: { broken: 'payload' },
+        dueAt: new Date('2026-03-11T18:32:00.000Z'),
+      })
+
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+      try {
+        const result = await processDueDomainEventById(
+          testServices,
+          eventId,
+          new Date('2026-03-11T18:32:01.000Z'),
+          { lockedBy: 'agent-test' },
+        )
+
+        expect(result).toBe('processed')
+        expect(handleCalled).toBe(false)
+        expect(await eventExists(eventId)).toBe(false)
+        expect(warnSpy).toHaveBeenCalledWith(
+          expect.stringContaining('domain_event_invalid_payload'),
+        )
+      } finally {
+        warnSpy.mockRestore()
+      }
+    },
+  )
+
+  it.runIf(process.env.RUN_DB_TESTS === '1')(
+    'respects lock policy metadata in registry handlers',
+    async () => {
+      await clearTestDatabase()
+
+      const stationId = '00000000-0000-0000-0000-000000000143'
+      const playerId = '00000000-0000-0000-0000-000000000043'
+      const lockedEventId = '00000000-0000-0000-0000-000000000343'
+      const unlockedEventId = '00000000-0000-0000-0000-000000000344'
+      const lockedType = 'tests.domain-events.locked.v1'
+      const unlockedType = 'tests.domain-events.unlocked.v1'
+      await seedStation(stationId, playerId)
+
+      let lockedHandleCalls = 0
+      let unlockedHandleCalls = 0
+      const testServices = buildTestServices({
+        [lockedType]: {
+          requiresStationLock: true,
+          parsePayload(payloadJson) {
+            if (
+              typeof payloadJson === 'object' &&
+              payloadJson !== null &&
+              'value' in payloadJson &&
+              typeof (payloadJson as { value: unknown }).value === 'number'
+            ) {
+              return { value: (payloadJson as { value: number }).value }
+            }
+            return null
+          },
+          async handle(input) {
+            lockedHandleCalls += 1
+            await input.tx.delete(domainEvents).where(eq(domainEvents.id, input.eventId))
+          },
+        },
+        [unlockedType]: {
+          requiresStationLock: false,
+          parsePayload(payloadJson) {
+            if (
+              typeof payloadJson === 'object' &&
+              payloadJson !== null &&
+              'value' in payloadJson &&
+              typeof (payloadJson as { value: unknown }).value === 'number'
+            ) {
+              return { value: (payloadJson as { value: number }).value }
+            }
+            return null
+          },
+          async handle(input) {
+            unlockedHandleCalls += 1
+            await input.tx.delete(domainEvents).where(eq(domainEvents.id, input.eventId))
+          },
+        },
+      })
+
+      await pool.query(
+        `insert into simulation_locks (station_id, locked_by, locked_at, expires_at)
+       values ($1, $2, $3, $4)`,
+        [
+          stationId,
+          'other-agent',
+          new Date('2026-03-11T18:33:00.000Z'),
+          new Date('2026-03-11T18:33:30.000Z'),
+        ],
+      )
+
+      await insertDomainEvent({
+        eventId: lockedEventId,
+        stationId,
+        eventType: lockedType,
+        payload: { value: 1 },
+        dueAt: new Date('2026-03-11T18:33:00.000Z'),
+      })
+      await insertDomainEvent({
+        eventId: unlockedEventId,
+        stationId,
+        eventType: unlockedType,
+        payload: { value: 2 },
+        dueAt: new Date('2026-03-11T18:33:00.000Z'),
+      })
+
+      const lockedResult = await processDueDomainEventById(
+        testServices,
+        lockedEventId,
+        new Date('2026-03-11T18:33:01.000Z'),
+        { lockedBy: 'agent-test' },
+      )
+      expect(lockedResult).toBe('lock_contended')
+      expect(lockedHandleCalls).toBe(0)
+      expect(await eventExists(lockedEventId)).toBe(true)
+
+      const unlockedResult = await processDueDomainEventById(
+        testServices,
+        unlockedEventId,
+        new Date('2026-03-11T18:33:02.000Z'),
+        { lockedBy: 'agent-test' },
+      )
+      expect(unlockedResult).toBe('processed')
+      expect(unlockedHandleCalls).toBe(1)
+      expect(await eventExists(unlockedEventId)).toBe(false)
+    },
+  )
+
   it.runIf(process.env.RUN_DB_TESTS === '1')(
     'keeps event pending on lock contention then finalizes after lock is released',
     async () => {

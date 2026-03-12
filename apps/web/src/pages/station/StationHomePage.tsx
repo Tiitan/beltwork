@@ -26,8 +26,12 @@ export function StationHomePage() {
     inventory,
     buildings,
     buildableBuildings,
+    miningRigCapacity,
+    activeMiningOperations,
+    uiNowMs,
     buildBuildingInSlot,
     upgradeBuildingById,
+    recallMiningOperationById,
     inventoryError,
     isStationActionPending,
   } = useStation()
@@ -365,6 +369,15 @@ export function StationHomePage() {
     }
   }
 
+  async function handleRecallMiningOperation(operationId: string) {
+    try {
+      setActionError(null)
+      await recallMiningOperationById(operationId)
+    } catch {
+      setActionError('Recall failed. Please try again.')
+    }
+  }
+
   const tooltipStyle =
     canvasSize && hoverPosition
       ? {
@@ -458,10 +471,14 @@ export function StationHomePage() {
           context={{
             inventory,
             buildableBuildings,
+            miningRigCapacity,
+            activeMiningOperations,
+            uiNowMs,
             isActionPending: isStationActionPending,
             actionError,
             onBuildBuilding: handleBuildBuilding,
             onUpgradeBuilding: handleUpgradeBuilding,
+            onRecallMiningOperation: handleRecallMiningOperation,
             onGoToMap: () => navigate('/map'),
           }}
         />

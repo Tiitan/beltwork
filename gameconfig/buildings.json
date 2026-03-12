@@ -308,6 +308,13 @@
         "active_hps": 1.9,
         "active_hps_scale_per_level": 1.1
       },
+      "operational_rules": {
+        "rig": {
+          "cargo_units": 600,
+          "move_speed_units_per_min": 300,
+          "mining_speed_units_per_min": 60
+        }
+      },
       "level_scaling": [
         {
           "stat": "max_active_rigs",

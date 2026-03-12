@@ -9,6 +9,8 @@ import { registerAuthRoutes } from './routes/auth.routes.js'
 import { registerStationRoutes } from './routes/station.routes.js'
 import { registerFactoryRoutes } from './routes/factory.routes.js'
 import { registerMapRoutes } from './routes/map.routes.js'
+import { registerMiningRoutes } from './routes/mining.routes.js'
+import { buildGameDomainEventHandlerRegistry } from './services/domain-events/game-domain-event-registry.js'
 
 /**
  * Creates and configures the Fastify API instance.
@@ -23,6 +25,7 @@ function createAppServices(options: BuildServerOptions = {}): AppServices {
     checkReadiness: options.checkReadiness ?? checkDatabaseConnection,
     verifyGoogleIdToken: options.verifyGoogleIdToken ?? createDefaultVerifyGoogleIdToken(env),
     factoryJobs: new Map(),
+    domainEventHandlers: buildGameDomainEventHandlerRegistry(),
   }
 }
 
@@ -43,6 +46,7 @@ export function buildServerWithServices(options: BuildServerOptions = {}) {
   registerAuthRoutes(app, services)
   registerStationRoutes(app, services)
   registerMapRoutes(app, services)
+  registerMiningRoutes(app, services)
   registerFactoryRoutes(app, services)
 
   return {

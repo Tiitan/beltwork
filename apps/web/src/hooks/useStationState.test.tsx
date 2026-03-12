@@ -4,6 +4,8 @@ import {
   createStationBuilding,
   fetchMapSnapshot,
   fetchStationSnapshot,
+  recallMiningOperation,
+  startMiningOperation,
   upgradeStationBuilding,
 } from '../features/station/api'
 import { useStationState } from './useStationState'
@@ -12,6 +14,8 @@ vi.mock('../features/station/api', () => ({
   createStationBuilding: vi.fn(),
   fetchMapSnapshot: vi.fn(),
   fetchStationSnapshot: vi.fn(),
+  startMiningOperation: vi.fn(),
+  recallMiningOperation: vi.fn(),
   upgradeStationBuilding: vi.fn(),
 }))
 
@@ -52,6 +56,8 @@ describe('useStationState', () => {
           },
         ],
         buildableBuildings: [],
+        miningRigCapacity: 1,
+        activeMiningOperations: [],
       })
       .mockResolvedValueOnce({
         id: 'station-1',
@@ -69,6 +75,8 @@ describe('useStationState', () => {
           },
         ],
         buildableBuildings: [],
+        miningRigCapacity: 1,
+        activeMiningOperations: [],
       })
 
     vi.mocked(createStationBuilding).mockResolvedValue({
@@ -78,6 +86,8 @@ describe('useStationState', () => {
       inventory: [],
       buildings: [],
       buildableBuildings: [],
+      miningRigCapacity: 1,
+      activeMiningOperations: [],
     })
     vi.mocked(upgradeStationBuilding).mockResolvedValue({
       id: 'station-1',
@@ -86,6 +96,28 @@ describe('useStationState', () => {
       inventory: [],
       buildings: [],
       buildableBuildings: [],
+      miningRigCapacity: 1,
+      activeMiningOperations: [],
+    })
+    vi.mocked(startMiningOperation).mockResolvedValue({
+      id: 'station-1',
+      x: 100,
+      y: 200,
+      inventory: [],
+      buildings: [],
+      buildableBuildings: [],
+      miningRigCapacity: 1,
+      activeMiningOperations: [],
+    })
+    vi.mocked(recallMiningOperation).mockResolvedValue({
+      id: 'station-1',
+      x: 100,
+      y: 200,
+      inventory: [],
+      buildings: [],
+      buildableBuildings: [],
+      miningRigCapacity: 1,
+      activeMiningOperations: [],
     })
 
     const { result } = renderHook(() => useStationState())

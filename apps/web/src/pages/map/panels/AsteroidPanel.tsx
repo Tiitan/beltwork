@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { MiningOperationCard } from '../../../components/mining/MiningOperationCard'
 import { scanAsteroid } from '../../../features/station/api'
 import { useStation } from '../../../features/station/useStation'
 import type { MapAsteroid, MapPanelContext } from '../../../types/app'
@@ -13,7 +14,19 @@ export function AsteroidPanel({ asteroid }: AsteroidPanelProps) {
   const isScanned = asteroid.isScanned
   const label = isScanned ? (asteroid.name ?? 'Unknown Asteroid') : 'Unknown Asteroid'
   const [actionMessage, setActionMessage] = useState<string | null>(null)
-  const { refreshMapSnapshot } = useStation()
+  const {
+    activeMiningOperations,
+    deployMiningRigToAsteroid,
+    recallMiningOperationById,
+    isStationActionPending,
+    miningRigCapacity,
+    refreshMapSnapshot,
+    uiNowMs,
+  } = useStation()
+  const asteroidOperations = activeMiningOperations.filter(
+    (operation) => operation.asteroidId === asteroid.id,
+  )
+  const hasAvailableRig = (activeMiningOperations?.length ?? 0) < (miningRigCapacity ?? 0)
 
   async function handleScanAsteroid() {
     try {
@@ -30,9 +43,21 @@ export function AsteroidPanel({ asteroid }: AsteroidPanelProps) {
   }
 
   async function handleDeployMiningRig() {
-    const message = `Deploy mining rig not implemented yet for target ${asteroid.id}.`
-    console.info(message)
-    setActionMessage(message)
+    try {
+      await deployMiningRigToAsteroid(asteroid.id)
+      setActionMessage(`Mining rig deployed toward target ${asteroid.id}.`)
+    } catch {
+      setActionMessage(`Mining rig deployment failed for target ${asteroid.id}.`)
+    }
+  }
+
+  async function handleRecallOperation(operationId: string) {
+    try {
+      await recallMiningOperationById(operationId)
+      setActionMessage(`Mining operation ${operationId.slice(0, 8)} recalled.`)
+    } catch {
+      setActionMessage(`Mining operation ${operationId.slice(0, 8)} recall failed.`)
+    }
   }
 
   return (
@@ -64,6 +89,28 @@ export function AsteroidPanel({ asteroid }: AsteroidPanelProps) {
         </div>
       ) : null}
 
+      <div className="grid gap-2 rounded-md border border-slate-400/30 bg-slate-900/55 p-3 text-sm text-slate-100">
+        <p className="m-0 font-semibold text-sky-100">Mining rig activity</p>
+        {asteroidOperations.length === 0 ? (
+          <p className="m-0 text-slate-300">No active mining operation on this asteroid.</p>
+        ) : (
+          <ul className="m-0 grid list-none gap-2 p-0">
+            {asteroidOperations.map((operation) => (
+              <MiningOperationCard
+                key={operation.id}
+                operation={operation}
+                uiNowMs={uiNowMs}
+                isActionPending={isStationActionPending}
+                showAsteroidId={false}
+                onRecall={(operationId) => {
+                  void handleRecallOperation(operationId)
+                }}
+              />
+            ))}
+          </ul>
+        )}
+      </div>
+
       <div className="grid gap-2 rounded-md border border-slate-400/30 bg-slate-900/55 p-3">
         <p className="text-sm font-semibold text-sky-100">Actions</p>
         <button
@@ -77,12 +124,13 @@ export function AsteroidPanel({ asteroid }: AsteroidPanelProps) {
         </button>
         <button
           type="button"
-          className="rounded-md border border-slate-300/35 bg-slate-800/75 px-3 py-2 text-left text-sm text-slate-100 transition hover:bg-slate-700/80"
+          disabled={isStationActionPending || !hasAvailableRig}
+          className="rounded-md border border-slate-300/35 bg-slate-800/75 px-3 py-2 text-left text-sm text-slate-100 transition hover:bg-slate-700/80 disabled:cursor-not-allowed disabled:opacity-60"
           onClick={() => {
             void handleDeployMiningRig()
           }}
         >
-          Deploy mining rig
+          {hasAvailableRig ? 'Deploy mining rig' : 'No rig available'}
         </button>
         {actionMessage ? <p className="text-xs text-amber-200">{actionMessage}</p> : null}
       </div>

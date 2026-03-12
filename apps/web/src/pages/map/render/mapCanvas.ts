@@ -1,4 +1,4 @@
-import type { MapElement, MapElementRef } from '../../../types/app'
+import type { ActiveMiningOperationRow, MapElement, MapElementRef } from '../../../types/app'
 import { loadImage } from '../../render/loadImage'
 import type { MapEntityRenderer } from '../panels/types'
 
@@ -15,6 +15,13 @@ export type WorldBounds = {
   maxX: number
   minY: number
   maxY: number
+}
+
+type MiningOverlayInput = {
+  playerStation: { id: string; x: number; y: number } | null
+  operations: ActiveMiningOperationRow[]
+  asteroidById: Map<string, { x: number; y: number }>
+  nowMs: number
 }
 
 export function clampMapCameraOffset(
@@ -122,6 +129,93 @@ export function drawEntity(
     context.arc(x, y, iconSize * selectionStyle.radiusScale, 0, Math.PI * 2)
     context.stroke()
   }
+}
+
+export function drawMiningOperationOverlays(
+  context: CanvasRenderingContext2D,
+  camera: CameraState,
+  input: MiningOverlayInput,
+) {
+  if (!input.playerStation) {
+    return
+  }
+
+  for (const operation of input.operations) {
+    const asteroidCoordinates = input.asteroidById.get(operation.asteroidId)
+    if (!asteroidCoordinates) {
+      continue
+    }
+
+    const stationScreenX = input.playerStation.x * camera.scale + camera.offsetX
+    const stationScreenY = input.playerStation.y * camera.scale + camera.offsetY
+    const asteroidScreenX = asteroidCoordinates.x * camera.scale + camera.offsetX
+    const asteroidScreenY = asteroidCoordinates.y * camera.scale + camera.offsetY
+
+    if (operation.status === 'mining') {
+      context.save()
+      context.setLineDash([4, 4])
+      context.strokeStyle = 'rgba(96, 165, 250, 0.9)'
+      context.lineWidth = 2
+      context.beginPath()
+      context.arc(asteroidScreenX, asteroidScreenY, 24, 0, Math.PI * 2)
+      context.stroke()
+      context.restore()
+      continue
+    }
+
+    if (operation.status !== 'flying_to_destination' && operation.status !== 'returning') {
+      continue
+    }
+
+    const progress = resolvePhaseProgress(
+      operation.phaseStartedAt,
+      operation.phaseFinishAt,
+      input.nowMs,
+    )
+    const returnOriginProgress = clampUnitInterval(operation.returnOriginProgress ?? 1)
+    const returnOriginX = stationScreenX + (asteroidScreenX - stationScreenX) * returnOriginProgress
+    const returnOriginY = stationScreenY + (asteroidScreenY - stationScreenY) * returnOriginProgress
+    const startX = operation.status === 'flying_to_destination' ? stationScreenX : returnOriginX
+    const startY = operation.status === 'flying_to_destination' ? stationScreenY : returnOriginY
+    const endX = operation.status === 'flying_to_destination' ? asteroidScreenX : stationScreenX
+    const endY = operation.status === 'flying_to_destination' ? asteroidScreenY : stationScreenY
+
+    context.save()
+    context.setLineDash([6, 6])
+    context.strokeStyle = 'rgba(96, 165, 250, 0.82)'
+    context.lineWidth = 2
+    context.beginPath()
+    context.moveTo(stationScreenX, stationScreenY)
+    context.lineTo(asteroidScreenX, asteroidScreenY)
+    context.stroke()
+    context.restore()
+
+    const dotX = startX + (endX - startX) * progress
+    const dotY = startY + (endY - startY) * progress
+    context.fillStyle = 'rgba(96, 165, 250, 0.95)'
+    context.beginPath()
+    context.arc(dotX, dotY, 4, 0, Math.PI * 2)
+    context.fill()
+  }
+}
+
+function resolvePhaseProgress(
+  phaseStartedAt: string,
+  phaseFinishAt: string | null,
+  nowMs: number,
+): number {
+  const phaseStartedAtMs = Date.parse(phaseStartedAt)
+  const phaseFinishAtMs = phaseFinishAt ? Date.parse(phaseFinishAt) : Number.NaN
+  if (!Number.isFinite(phaseStartedAtMs) || !Number.isFinite(phaseFinishAtMs)) {
+    return 0
+  }
+
+  const totalDurationMs = Math.max(1, phaseFinishAtMs - phaseStartedAtMs)
+  return clampUnitInterval((nowMs - phaseStartedAtMs) / totalDurationMs)
+}
+
+function clampUnitInterval(value: number): number {
+  return Math.max(0, Math.min(1, value))
 }
 
 export function findNearestEntityHit(

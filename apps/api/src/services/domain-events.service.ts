@@ -1,24 +1,16 @@
-import { and, asc, eq, isNull, lte, sql } from 'drizzle-orm'
-import { z } from 'zod'
-import { domainEvents, simulationLocks, stationBuildings, stations } from '../db/schema.js'
+import { and, asc, eq, inArray, isNull, lte, sql } from 'drizzle-orm'
+import { domainEvents, simulationLocks } from '../db/schema.js'
 import type { AppServices } from '../types/api.js'
-import { STATION_BUILDING_UPGRADE_FINALIZE_EVENT_TYPE } from './station.service.js'
-
-const upgradeFinalizePayloadSchema = z.object({
-  building_id: z.string().min(1),
-  upgrade_started_at: z.string().min(1),
-})
+import type {
+  DomainEventHandlerDefinition,
+  DomainEventHandlerRegistry,
+} from './domain-events/types.js'
 
 export const DEFAULT_STATION_LOCK_LEASE_MS = 30_000
 
 type DomainEventDueRow = {
   id: string
   dueAt: Date
-}
-
-type UpgradeFinalizePayload = {
-  buildingId: string
-  upgradeStartedAt: Date
 }
 
 export type ProcessDomainEventResult = 'processed' | 'missing' | 'lock_contended'
@@ -35,34 +27,37 @@ type StationLeaseLockInput = {
   leaseMs: number
 }
 
-function toValidDate(value: string): Date | null {
-  const parsed = new Date(value)
-  return Number.isNaN(parsed.getTime()) ? null : parsed
+function resolveHandlerRegistry(services: AppServices): DomainEventHandlerRegistry<AppServices> {
+  return services.domainEventHandlers ?? {}
 }
 
-function parseUpgradeFinalizePayload(payload: unknown): UpgradeFinalizePayload | null {
-  const parsedPayload = upgradeFinalizePayloadSchema.safeParse(payload)
-  if (!parsedPayload.success) {
-    return null
-  }
+function resolveHandler(
+  registry: DomainEventHandlerRegistry<AppServices>,
+  eventType: string,
+): DomainEventHandlerDefinition<any, AppServices> | undefined {
+  return registry[eventType]
+}
 
-  const upgradeStartedAt = toValidDate(parsedPayload.data.upgrade_started_at)
-  if (!upgradeStartedAt) {
-    return null
-  }
+async function deleteDomainEventById(services: AppServices, eventId: string): Promise<void> {
+  await services.db.delete(domainEvents).where(eq(domainEvents.id, eventId))
+}
 
-  return {
-    buildingId: parsedPayload.data.building_id,
-    upgradeStartedAt,
-  }
+function lockLeaseMsFromOptions(options: ProcessDueDomainEventByIdOptions): number {
+  const leaseMs = options.lockLeaseMs ?? DEFAULT_STATION_LOCK_LEASE_MS
+  return Math.max(1_000, leaseMs)
 }
 
 export async function prefetchDueEventsWindow(
   services: AppServices,
-  now: Date,
+  _now: Date,
   dueBefore: Date,
   limit = 200,
 ): Promise<DomainEventDueRow[]> {
+  const eventTypes = Object.keys(resolveHandlerRegistry(services))
+  if (eventTypes.length === 0) {
+    return []
+  }
+
   const clampedLimit = Math.max(1, Math.min(1_000, Math.floor(limit)))
 
   return services.db
@@ -73,7 +68,7 @@ export async function prefetchDueEventsWindow(
     .from(domainEvents)
     .where(
       and(
-        eq(domainEvents.eventType, STATION_BUILDING_UPGRADE_FINALIZE_EVENT_TYPE),
+        inArray(domainEvents.eventType, eventTypes),
         isNull(domainEvents.processedAt),
         lte(domainEvents.dueAt, dueBefore),
       ),
@@ -116,22 +111,19 @@ export async function releaseStationLeaseLock(
   return releasedRows.length > 0
 }
 
-function lockLeaseMsFromOptions(options: ProcessDueDomainEventByIdOptions): number {
-  const leaseMs = options.lockLeaseMs ?? DEFAULT_STATION_LOCK_LEASE_MS
-  return Math.max(1_000, leaseMs)
-}
-
 export async function processDueDomainEventById(
   services: AppServices,
   eventId: string,
   now: Date,
   options: ProcessDueDomainEventByIdOptions,
 ): Promise<ProcessDomainEventResult> {
+  const registry = resolveHandlerRegistry(services)
+
   const [eventRow] = await services.db
     .select({
       id: domainEvents.id,
       stationId: domainEvents.stationId,
-      payloadJson: domainEvents.payloadJson,
+      eventType: domainEvents.eventType,
     })
     .from(domainEvents)
     .where(eq(domainEvents.id, eventId))
@@ -143,81 +135,88 @@ export async function processDueDomainEventById(
 
   if (!eventRow.stationId) {
     console.warn(`domain_event_invalid_station_id eventId=${eventRow.id}`)
-    await services.db.delete(domainEvents).where(eq(domainEvents.id, eventRow.id))
+    await deleteDomainEventById(services, eventRow.id)
     return 'processed'
   }
+
+  const handler = resolveHandler(registry, eventRow.eventType)
+  if (!handler) {
+    console.warn(
+      `domain_event_unsupported_type eventId=${eventRow.id} eventType=${eventRow.eventType}`,
+    )
+    await deleteDomainEventById(services, eventRow.id)
+    return 'processed'
+  }
+
   const stationId = eventRow.stationId
+  const requiresStationLock = handler.requiresStationLock
+  let lockAcquired = false
 
-  const parsedPayload = parseUpgradeFinalizePayload(eventRow.payloadJson)
-  if (!parsedPayload) {
-    console.warn(`domain_event_invalid_payload eventId=${eventRow.id}`)
-    await services.db.delete(domainEvents).where(eq(domainEvents.id, eventRow.id))
-    return 'processed'
-  }
+  if (requiresStationLock) {
+    lockAcquired = await acquireStationLeaseLock(services, {
+      stationId,
+      lockedBy: options.lockedBy,
+      now,
+      leaseMs: lockLeaseMsFromOptions(options),
+    })
 
-  const lockAcquired = await acquireStationLeaseLock(services, {
-    stationId,
-    lockedBy: options.lockedBy,
-    now,
-    leaseMs: lockLeaseMsFromOptions(options),
-  })
-
-  if (!lockAcquired) {
-    return 'lock_contended'
+    if (!lockAcquired) {
+      return 'lock_contended'
+    }
   }
 
   try {
     await services.db.transaction(async (tx) => {
-      const [lockedEventRow] = await tx
+      const [lockedEvent] = await tx
         .select({
           id: domainEvents.id,
+          stationId: domainEvents.stationId,
+          eventType: domainEvents.eventType,
+          payloadJson: domainEvents.payloadJson,
         })
         .from(domainEvents)
         .where(eq(domainEvents.id, eventRow.id))
         .limit(1)
 
-      if (!lockedEventRow) {
+      if (!lockedEvent) {
         return
       }
 
-      const [updatedBuilding] = await tx
-        .update(stationBuildings)
-        .set({
-          level: sql`${stationBuildings.level} + 1`,
-          upgradeStartedAt: null,
-          updatedAt: now,
-        })
-        .where(
-          and(
-            eq(stationBuildings.id, parsedPayload.buildingId),
-            eq(stationBuildings.stationId, stationId),
-            eq(stationBuildings.upgradeStartedAt, parsedPayload.upgradeStartedAt),
-          ),
-        )
-        .returning({
-          id: stationBuildings.id,
-        })
+      if (!lockedEvent.stationId) {
+        console.warn(`domain_event_invalid_station_id eventId=${lockedEvent.id}`)
+        await tx.delete(domainEvents).where(eq(domainEvents.id, lockedEvent.id))
+        return
+      }
 
-      if (!updatedBuilding) {
+      const lockedHandler = resolveHandler(registry, lockedEvent.eventType)
+      if (!lockedHandler) {
         console.warn(
-          `domain_event_upgrade_finalize_skipped eventId=${eventRow.id} buildingId=${parsedPayload.buildingId}`,
+          `domain_event_unsupported_type eventId=${lockedEvent.id} eventType=${lockedEvent.eventType}`,
         )
-        await tx.delete(domainEvents).where(eq(domainEvents.id, eventRow.id))
+        await tx.delete(domainEvents).where(eq(domainEvents.id, lockedEvent.id))
         return
       }
 
-      await tx
-        .update(stations)
-        .set({
-          lastSimulatedAt: now,
-          updatedAt: now,
-        })
-        .where(eq(stations.id, stationId))
+      const parsedPayload = lockedHandler.parsePayload(lockedEvent.payloadJson)
+      if (!parsedPayload) {
+        console.warn(`domain_event_invalid_payload eventId=${lockedEvent.id}`)
+        await tx.delete(domainEvents).where(eq(domainEvents.id, lockedEvent.id))
+        return
+      }
 
-      await tx.delete(domainEvents).where(eq(domainEvents.id, eventRow.id))
+      await lockedHandler.handle({
+        tx,
+        services,
+        eventId: lockedEvent.id,
+        stationId: lockedEvent.stationId,
+        now,
+        payload: parsedPayload,
+      })
     })
   } finally {
-    await releaseStationLeaseLock(services, stationId, options.lockedBy)
+    if (lockAcquired) {
+      await releaseStationLeaseLock(services, stationId, options.lockedBy)
+    }
   }
 
   return 'processed'

@@ -7,6 +7,7 @@ import {
   clampMapCameraOffset,
   drawBackgroundAndWorldBorder,
   drawEntity,
+  drawMiningOperationOverlays,
   findNearestEntityHit,
   type CameraState,
 } from './map/render/mapCanvas'
@@ -20,9 +21,11 @@ export function MapPage() {
   const {
     mapSnapshot,
     mapEntities,
+    activeMiningOperations,
     mapError,
     isMapLoading,
     playerAnchor,
+    uiNowMs,
     selectedElement,
     selectedElementRef,
     setSelectedElementRef,
@@ -58,6 +61,14 @@ export function MapPage() {
       ) ?? null
     )
   }, [hoveredElementRef, mapEntities])
+
+  const asteroidById = useMemo(
+    () =>
+      new Map(
+        mapSnapshot.asteroids.map((asteroid) => [asteroid.id, { x: asteroid.x, y: asteroid.y }]),
+      ),
+    [mapSnapshot.asteroids],
+  )
 
   useEffect(() => {
     const element = containerRef.current
@@ -163,14 +174,25 @@ export function MapPage() {
         selectedElementRef,
       )
     }
+
+    drawMiningOperationOverlays(context, camera, {
+      playerStation: playerAnchor,
+      operations: activeMiningOperations,
+      asteroidById,
+      nowMs: uiNowMs,
+    })
   }, [
+    activeMiningOperations,
+    asteroidById,
     canvasSize,
     imageVersion,
     mapEntities,
     mapSnapshot.worldBounds,
     offset,
+    playerAnchor,
     scale,
     selectedElementRef,
+    uiNowMs,
   ])
 
   function toWorldCoordinates(clientX: number, clientY: number) {

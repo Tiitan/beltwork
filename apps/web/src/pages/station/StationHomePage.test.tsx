@@ -41,6 +41,9 @@ function buildBaseState(overrides: Record<string, unknown> = {}) {
       { id: 'life_support', name: 'Life Support' },
       { id: 'storage', name: 'Storage' },
     ],
+    miningRigCapacity: 1,
+    activeMiningOperations: [],
+    uiNowMs: Date.now(),
     isStationActionPending: false,
     isBuildingPending: false,
     selectedElement: null,
@@ -51,6 +54,8 @@ function buildBaseState(overrides: Record<string, unknown> = {}) {
     refreshStationSnapshot: vi.fn(async () => {}),
     buildBuildingInSlot: vi.fn(async () => {}),
     upgradeBuildingById: vi.fn(async () => {}),
+    deployMiningRigToAsteroid: vi.fn(async () => {}),
+    recallMiningOperationById: vi.fn(async () => {}),
     ...overrides,
   } as any
 }
@@ -81,6 +86,16 @@ function clickSlotOne() {
 
   fireEvent.pointerDown(canvas, { clientX: 255, clientY: 194 })
   fireEvent.pointerUp(canvas, { clientX: 255, clientY: 194 })
+}
+
+function clickSlotOneBuilding() {
+  const canvas = document.querySelector('canvas')
+  if (!canvas) {
+    throw new Error('canvas_not_found')
+  }
+
+  fireEvent.pointerDown(canvas, { clientX: 255, clientY: 165 })
+  fireEvent.pointerUp(canvas, { clientX: 255, clientY: 165 })
 }
 
 describe('StationHomePage', () => {
@@ -125,7 +140,7 @@ describe('StationHomePage', () => {
 
     renderWithState(state)
     await waitFor(() => expect(screen.getByLabelText(/station page canvas/i)).toBeInTheDocument())
-    clickSlotOne()
+    clickSlotOneBuilding()
 
     expect(await screen.findByRole('heading', { name: /fusion reactor/i })).toBeInTheDocument()
     expect(screen.getByText(/slot: 1/i)).toBeInTheDocument()
@@ -152,7 +167,7 @@ describe('StationHomePage', () => {
 
     renderWithState(state)
     await waitFor(() => expect(screen.getByLabelText(/station page canvas/i)).toBeInTheDocument())
-    clickSlotOne()
+    clickSlotOneBuilding()
 
     expect(await screen.findByRole('heading', { name: /storage/i })).toBeInTheDocument()
     expect(screen.getByText('Inventory')).toBeInTheDocument()
@@ -178,7 +193,7 @@ describe('StationHomePage', () => {
 
     renderWithState(state)
     await waitFor(() => expect(screen.getByLabelText(/station page canvas/i)).toBeInTheDocument())
-    clickSlotOne()
+    clickSlotOneBuilding()
     fireEvent.click(await screen.findByRole('button', { name: /upgrade/i }))
 
     await waitFor(() => expect(upgradeBuildingById).toHaveBeenCalledWith('building-1'))
@@ -200,7 +215,7 @@ describe('StationHomePage', () => {
 
     renderWithState(state)
     await waitFor(() => expect(screen.getByLabelText(/station page canvas/i)).toBeInTheDocument())
-    clickSlotOne()
+    clickSlotOneBuilding()
     fireEvent.click(await screen.findByRole('button', { name: /go to map/i }))
 
     expect(await screen.findByText('Map route')).toBeInTheDocument()

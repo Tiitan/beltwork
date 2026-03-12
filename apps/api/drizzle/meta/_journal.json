@@ -43,6 +43,13 @@
       "when": 1773226734002,
       "tag": "0005_lumpy_lilandra",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1773320000000,
+      "tag": "0006_restful_mining_operations",
+      "breakpoints": true
     }
   ]
 }

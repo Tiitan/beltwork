@@ -6,10 +6,14 @@ function createContext(overrides: Record<string, unknown> = {}) {
   return {
     inventory: [],
     buildableBuildings: [],
+    miningRigCapacity: 1,
+    activeMiningOperations: [],
+    uiNowMs: Date.now(),
     isActionPending: false,
     actionError: null,
     onBuildBuilding: vi.fn(async () => {}),
     onUpgradeBuilding: vi.fn(async () => {}),
+    onRecallMiningOperation: vi.fn(async () => {}),
     onGoToMap: vi.fn(),
     ...overrides,
   } as any

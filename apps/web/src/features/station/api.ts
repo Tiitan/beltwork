@@ -1,4 +1,10 @@
-import type { BuildableBuildingRow, BuildingRow, InventoryRow, MapSnapshot } from '../../types/app'
+import type {
+  ActiveMiningOperationRow,
+  BuildableBuildingRow,
+  BuildingRow,
+  InventoryRow,
+  MapSnapshot,
+} from '../../types/app'
 
 type StationSnapshotResponse = {
   id: string
@@ -20,6 +26,20 @@ type StationSnapshotResponse = {
     id: string
     name: string
   }>
+  mining_rig_capacity: number
+  active_mining_operations: Array<{
+    id: string
+    asteroid_id: string
+    status: 'flying_to_destination' | 'mining' | 'returning'
+    phase_started_at: string
+    phase_finish_at: string | null
+    return_origin_progress?: number | null
+    quantity: number
+    quantity_target: number
+    cargo_capacity: number
+    estimated_asteroid_remaining_units: number | null
+    asteroid_remaining_units_at_mining_start: number | null
+  }>
 }
 
 export type StationSnapshot = {
@@ -29,6 +49,8 @@ export type StationSnapshot = {
   inventory: InventoryRow[]
   buildings: BuildingRow[]
   buildableBuildings: BuildableBuildingRow[]
+  miningRigCapacity: number
+  activeMiningOperations: ActiveMiningOperationRow[]
 }
 
 type MapSnapshotResponse = {
@@ -78,6 +100,20 @@ function parseStationSnapshotResponse(payload: StationSnapshotResponse): Station
     buildableBuildings: payload.buildable_buildings.map((building) => ({
       id: building.id,
       name: building.name,
+    })),
+    miningRigCapacity: payload.mining_rig_capacity ?? 0,
+    activeMiningOperations: (payload.active_mining_operations ?? []).map((operation) => ({
+      id: operation.id,
+      asteroidId: operation.asteroid_id,
+      status: operation.status,
+      phaseStartedAt: operation.phase_started_at,
+      phaseFinishAt: operation.phase_finish_at,
+      returnOriginProgress: operation.return_origin_progress ?? null,
+      quantity: operation.quantity,
+      quantityTarget: operation.quantity_target,
+      cargoCapacity: operation.cargo_capacity,
+      estimatedAsteroidRemainingUnits: operation.estimated_asteroid_remaining_units,
+      asteroidRemainingUnitsAtMiningStart: operation.asteroid_remaining_units_at_mining_start,
     })),
   }
 }
@@ -144,6 +180,38 @@ export async function upgradeStationBuilding(buildingId: string): Promise<Statio
 
   if (!response.ok) {
     throw new Error('failed_to_upgrade_building')
+  }
+
+  const payload = (await response.json()) as StationSnapshotResponse
+  return parseStationSnapshotResponse(payload)
+}
+
+export async function startMiningOperation(asteroidId: string): Promise<StationSnapshot> {
+  const response = await apiFetch('/v1/mining/operations', {
+    method: 'POST',
+    body: JSON.stringify({
+      asteroid_id: asteroidId,
+    }),
+  })
+
+  if (!response.ok) {
+    throw new Error('failed_to_start_mining_operation')
+  }
+
+  const payload = (await response.json()) as StationSnapshotResponse
+  return parseStationSnapshotResponse(payload)
+}
+
+export async function recallMiningOperation(operationId: string): Promise<StationSnapshot> {
+  const response = await apiFetch(`/v1/mining/operations/${operationId}`, {
+    method: 'PATCH',
+    body: JSON.stringify({
+      action: 'recall',
+    }),
+  })
+
+  if (!response.ok) {
+    throw new Error('failed_to_recall_mining_operation')
   }
 
   const payload = (await response.json()) as StationSnapshotResponse

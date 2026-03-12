@@ -2,10 +2,13 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   createStationBuilding,
   fetchMapSnapshot,
+  recallMiningOperation,
   fetchStationSnapshot,
+  startMiningOperation,
   upgradeStationBuilding,
 } from '../features/station/api'
 import type {
+  ActiveMiningOperationRow,
   BuildableBuildingRow,
   BuildingRow,
   InventoryRow,
@@ -21,6 +24,7 @@ const defaultWorldBounds = {
   maxY: 10000,
 } as const
 const STATION_UPGRADE_OVERDUE_REFRESH_RETRY_MS = 1_000
+const STATION_LIVE_PROGRESS_TICK_MS = 250
 
 /**
  * Manages station dashboard state and derived selections.
@@ -35,6 +39,11 @@ export function useStationState() {
   )
   const [buildings, setBuildings] = useState<BuildingRow[]>([])
   const [buildableBuildings, setBuildableBuildings] = useState<BuildableBuildingRow[]>([])
+  const [miningRigCapacity, setMiningRigCapacity] = useState(0)
+  const [activeMiningOperations, setActiveMiningOperations] = useState<ActiveMiningOperationRow[]>(
+    [],
+  )
+  const [uiNowMs, setUiNowMs] = useState(() => Date.now())
   const [mapSnapshot, setMapSnapshot] = useState<MapSnapshot>({
     worldBounds: defaultWorldBounds,
     stations: [],
@@ -98,6 +107,8 @@ export function useStationState() {
       })
       setBuildings(stationSnapshot.buildings)
       setBuildableBuildings(stationSnapshot.buildableBuildings)
+      setMiningRigCapacity(stationSnapshot.miningRigCapacity)
+      setActiveMiningOperations(stationSnapshot.activeMiningOperations)
       setInventoryError(null)
     },
     [],
@@ -134,26 +145,64 @@ export function useStationState() {
     [applyStationSnapshot],
   )
 
+  const deployMiningRigToAsteroid = useCallback(
+    async (asteroidId: string) => {
+      setIsStationActionPending(true)
+      try {
+        const stationSnapshot = await startMiningOperation(asteroidId)
+        applyStationSnapshot(stationSnapshot)
+      } finally {
+        setIsStationActionPending(false)
+      }
+    },
+    [applyStationSnapshot],
+  )
+
+  const recallMiningOperationById = useCallback(
+    async (operationId: string) => {
+      setIsStationActionPending(true)
+      try {
+        const stationSnapshot = await recallMiningOperation(operationId)
+        applyStationSnapshot(stationSnapshot)
+      } finally {
+        setIsStationActionPending(false)
+      }
+    },
+    [applyStationSnapshot],
+  )
+
   useEffect(() => {
     const upgradingFinishTimes = buildings
       .filter((building) => building.status === 'upgrading' && building.upgradeFinishAt !== null)
       .map((building) => Date.parse(building.upgradeFinishAt as string))
       .filter((value) => Number.isFinite(value))
+    const miningFinishTimes = activeMiningOperations
+      .map((operation) =>
+        operation.phaseFinishAt ? Date.parse(operation.phaseFinishAt) : Number.NaN,
+      )
+      .filter((value) => Number.isFinite(value))
+    const refreshAtTimes = [...upgradingFinishTimes, ...miningFinishTimes]
 
-    if (upgradingFinishTimes.length === 0) {
+    if (refreshAtTimes.length === 0) {
       return
     }
 
-    const earliestFinishAtMs = Math.min(...upgradingFinishTimes)
+    const earliestFinishAtMs = Math.min(...refreshAtTimes)
     const initialDelayMs = Math.max(0, earliestFinishAtMs - Date.now())
     let isCancelled = false
     let timeoutHandle: ReturnType<typeof setTimeout> | undefined
 
+    const refreshSnapshots = async () => {
+      try {
+        await Promise.all([refreshStationSnapshot(), refreshMapSnapshot()])
+      } catch {
+        return
+      }
+    }
+
     const scheduleRetry = () => {
       timeoutHandle = setTimeout(async () => {
-        try {
-          await refreshStationSnapshot()
-        } catch {}
+        await refreshSnapshots()
 
         if (!isCancelled) {
           scheduleRetry()
@@ -162,9 +211,7 @@ export function useStationState() {
     }
 
     timeoutHandle = setTimeout(async () => {
-      try {
-        await refreshStationSnapshot()
-      } catch {}
+      await refreshSnapshots()
 
       if (!isCancelled) {
         scheduleRetry()
@@ -177,7 +224,29 @@ export function useStationState() {
         clearTimeout(timeoutHandle)
       }
     }
-  }, [buildings, refreshStationSnapshot])
+  }, [activeMiningOperations, buildings, refreshMapSnapshot, refreshStationSnapshot])
+
+  useEffect(() => {
+    setUiNowMs(Date.now())
+    const hasLiveOperations = activeMiningOperations.some(
+      (operation) =>
+        operation.status === 'flying_to_destination' ||
+        operation.status === 'mining' ||
+        operation.status === 'returning',
+    )
+
+    if (!hasLiveOperations) {
+      return
+    }
+
+    const timer = setInterval(() => {
+      setUiNowMs(Date.now())
+    }, STATION_LIVE_PROGRESS_TICK_MS)
+
+    return () => {
+      clearInterval(timer)
+    }
+  }, [activeMiningOperations])
 
   useEffect(() => {
     let isMounted = true
@@ -198,6 +267,8 @@ export function useStationState() {
         setInventory([])
         setBuildings([])
         setBuildableBuildings([])
+        setMiningRigCapacity(0)
+        setActiveMiningOperations([])
         setPlayerStation(null)
         setInventoryError('unavailable')
       }
@@ -268,6 +339,9 @@ export function useStationState() {
     mapEntities,
     buildings,
     buildableBuildings,
+    miningRigCapacity,
+    activeMiningOperations,
+    uiNowMs,
     isStationActionPending,
     isBuildingPending: isStationActionPending,
     selectedElement,
@@ -278,5 +352,7 @@ export function useStationState() {
     refreshStationSnapshot,
     buildBuildingInSlot,
     upgradeBuildingById,
+    deployMiningRigToAsteroid,
+    recallMiningOperationById,
   }
 }
