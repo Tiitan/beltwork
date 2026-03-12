@@ -65,6 +65,19 @@ export type StationSnapshotResponse = {
   }>
 }
 
+export type JournalEventResponse = {
+  id: string
+  event_type: string
+  importance: 'info' | 'important' | 'warning'
+  description: string
+  occurred_at: string
+}
+
+export type JournalEventsResponse = {
+  events: JournalEventResponse[]
+  next_cursor: string | null
+}
+
 export type MapStationResponse = {
   id: string
   x: number

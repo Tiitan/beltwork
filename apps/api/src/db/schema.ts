@@ -18,6 +18,7 @@ import {
  * Authentication mode enum used by player records.
  */
 export const authTypeEnum = pgEnum('auth_type', ['guest', 'local', 'google'])
+export const journalImportanceEnum = pgEnum('journal_importance', ['info', 'important', 'warning'])
 
 /**
  * Player accounts and profile credentials.
@@ -280,6 +281,31 @@ export const domainEvents = pgTable(
     index('domain_events_due_processed_idx').on(table.dueAt, table.processedAt),
     index('domain_events_station_id_idx').on(table.stationId),
     uniqueIndex('domain_events_idempotency_key_unique_idx').on(table.idempotencyKey),
+  ],
+)
+
+/**
+ * Player-facing journal history for completed game events.
+ */
+export const playerJournalEntries = pgTable(
+  'player_journal_entries',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    playerId: uuid('player_id')
+      .references(() => players.id, { onDelete: 'cascade' })
+      .notNull(),
+    stationId: uuid('station_id').references(() => stations.id, { onDelete: 'cascade' }),
+    eventType: text('event_type').notNull(),
+    importance: journalImportanceEnum('importance').notNull(),
+    description: text('description').notNull(),
+    occurredAt: timestamp('occurred_at', { withTimezone: true }).notNull(),
+    metadataJson: jsonb('metadata_json').default({}).notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index('player_journal_entries_player_occurred_idx').on(table.playerId, table.occurredAt),
+    index('player_journal_entries_station_occurred_idx').on(table.stationId, table.occurredAt),
+    index('player_journal_entries_event_type_idx').on(table.eventType),
   ],
 )
 

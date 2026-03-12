@@ -110,6 +110,11 @@ export const stationMiningCompletedEventHandler: DomainEventHandlerDefinition<
       })
       .where(eq(miningOperations.id, operationRow.id))
 
+    const returnReason =
+      decrementResult.remainingUnits !== null && decrementResult.remainingUnits <= 0
+        ? 'asteroid_depleted'
+        : 'cargo_full'
+
     await transitionToReturningAndEnqueue(input.tx, {
       operationId: operationRow.id,
       stationId: input.stationId,
@@ -118,6 +123,7 @@ export const stationMiningCompletedEventHandler: DomainEventHandlerDefinition<
       asteroidX: asteroidRow.x,
       asteroidY: asteroidRow.y,
       now: input.now,
+      returnReason,
     })
 
     await touchStationSimulationTime(input.tx, input.stationId, input.now)

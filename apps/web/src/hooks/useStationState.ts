@@ -53,6 +53,8 @@ export function useStationState() {
   const [mapError, setMapError] = useState<string | null>(null)
   const [isMapLoading, setIsMapLoading] = useState(true)
   const [isStationActionPending, setIsStationActionPending] = useState(false)
+  const [isShellRefreshPending, setIsShellRefreshPending] = useState(false)
+  const [snapshotRefreshRevision, setSnapshotRefreshRevision] = useState(0)
 
   const mapEntities = useMemo<MapElement[]>(
     () => [
@@ -78,6 +80,10 @@ export function useStationState() {
   function clearSelectedElement() {
     setSelectedElementRef(null)
   }
+
+  const markSnapshotsRefreshed = useCallback(() => {
+    setSnapshotRefreshRevision((currentRevision) => currentRevision + 1)
+  }, [])
 
   const refreshMapSnapshot = useCallback(async () => {
     const nextMapSnapshot = await fetchMapSnapshot()
@@ -119,17 +125,31 @@ export function useStationState() {
     applyStationSnapshot(stationSnapshot)
   }, [applyStationSnapshot])
 
+  const refreshShellData = useCallback(async () => {
+    setIsShellRefreshPending(true)
+    try {
+      await Promise.all([refreshStationSnapshot(), refreshMapSnapshot()])
+      markSnapshotsRefreshed()
+      return true
+    } catch {
+      return false
+    } finally {
+      setIsShellRefreshPending(false)
+    }
+  }, [markSnapshotsRefreshed, refreshMapSnapshot, refreshStationSnapshot])
+
   const buildBuildingInSlot = useCallback(
     async (slotIndex: number, buildingType: string) => {
       setIsStationActionPending(true)
       try {
         const stationSnapshot = await createStationBuilding(buildingType, slotIndex)
         applyStationSnapshot(stationSnapshot)
+        markSnapshotsRefreshed()
       } finally {
         setIsStationActionPending(false)
       }
     },
-    [applyStationSnapshot],
+    [applyStationSnapshot, markSnapshotsRefreshed],
   )
 
   const upgradeBuildingById = useCallback(
@@ -138,11 +158,12 @@ export function useStationState() {
       try {
         const stationSnapshot = await upgradeStationBuilding(buildingId)
         applyStationSnapshot(stationSnapshot)
+        markSnapshotsRefreshed()
       } finally {
         setIsStationActionPending(false)
       }
     },
-    [applyStationSnapshot],
+    [applyStationSnapshot, markSnapshotsRefreshed],
   )
 
   const deployMiningRigToAsteroid = useCallback(
@@ -151,11 +172,12 @@ export function useStationState() {
       try {
         const stationSnapshot = await startMiningOperation(asteroidId)
         applyStationSnapshot(stationSnapshot)
+        markSnapshotsRefreshed()
       } finally {
         setIsStationActionPending(false)
       }
     },
-    [applyStationSnapshot],
+    [applyStationSnapshot, markSnapshotsRefreshed],
   )
 
   const recallMiningOperationById = useCallback(
@@ -164,11 +186,12 @@ export function useStationState() {
       try {
         const stationSnapshot = await recallMiningOperation(operationId)
         applyStationSnapshot(stationSnapshot)
+        markSnapshotsRefreshed()
       } finally {
         setIsStationActionPending(false)
       }
     },
-    [applyStationSnapshot],
+    [applyStationSnapshot, markSnapshotsRefreshed],
   )
 
   useEffect(() => {
@@ -195,6 +218,7 @@ export function useStationState() {
     const refreshSnapshots = async () => {
       try {
         await Promise.all([refreshStationSnapshot(), refreshMapSnapshot()])
+        markSnapshotsRefreshed()
       } catch {
         return
       }
@@ -224,7 +248,13 @@ export function useStationState() {
         clearTimeout(timeoutHandle)
       }
     }
-  }, [activeMiningOperations, buildings, refreshMapSnapshot, refreshStationSnapshot])
+  }, [
+    activeMiningOperations,
+    buildings,
+    markSnapshotsRefreshed,
+    refreshMapSnapshot,
+    refreshStationSnapshot,
+  ])
 
   useEffect(() => {
     setUiNowMs(Date.now())
@@ -344,12 +374,15 @@ export function useStationState() {
     uiNowMs,
     isStationActionPending,
     isBuildingPending: isStationActionPending,
+    isShellRefreshPending,
+    snapshotRefreshRevision,
     selectedElement,
     selectedElementRef,
     setSelectedElementRef,
     clearSelectedElement,
     refreshMapSnapshot,
     refreshStationSnapshot,
+    refreshShellData,
     buildBuildingInSlot,
     upgradeBuildingById,
     deployMiningRigToAsteroid,

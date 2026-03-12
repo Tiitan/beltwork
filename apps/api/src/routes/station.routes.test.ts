@@ -545,7 +545,7 @@ describe('station routes', () => {
   )
 
   it.runIf(process.env.RUN_DB_TESTS === '1')(
-    'finalizes due upgrade events, increments level, and deletes the event row',
+    'finalizes due upgrade events, increments level, deletes the event row, and writes a journal entry',
     async () => {
       await clearTestDatabase()
 
@@ -619,6 +619,19 @@ describe('station routes', () => {
         'select count(*)::integer as count from domain_events',
       )
       expect(eventCountResult.rows[0]?.count).toBe(0)
+
+      const journalEntriesResult = await pool.query(
+        `select importance, description, event_type
+         from player_journal_entries
+         order by occurred_at desc
+         limit 1`,
+      )
+      expect(journalEntriesResult.rows).toHaveLength(1)
+      expect(journalEntriesResult.rows[0]).toMatchObject({
+        importance: 'important',
+        event_type: 'station.building.upgrade.finalize.v1',
+        description: 'Storage upgraded to level 2!',
+      })
     },
   )
 

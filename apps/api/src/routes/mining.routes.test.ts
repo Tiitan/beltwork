@@ -2,7 +2,10 @@ import { and, eq } from 'drizzle-orm'
 import { describe, expect, it } from 'vitest'
 import { db, pool } from '../db/client.js'
 import { asteroid, miningOperations, scannedAsteroids } from '../db/schema.js'
+import { formatJournalResourceList } from '../services/journal.service.js'
+import { allocateResourceBreakdown } from '../services/domain-events/game-domain-event-utils.js'
 import { loadMiningDockRigConfig } from '../services/mining-config.service.js'
+import { loadAsteroidCompositionByTemplateId } from '../services/mining-config.service.js'
 import { processDueDomainEventsOnce } from '../services/domain-events.service.js'
 import { IMMEDIATE_OUTBOUND_RECALL_WINDOW_MS } from '../services/mining.service.js'
 import { buildServer, buildServerWithServices } from '../server.js'
@@ -20,6 +23,15 @@ function getSessionCookiePair(setCookieHeader: string | string[] | undefined): s
   }
 
   return cookiePair
+}
+
+async function selectJournalEntries() {
+  const queryResult = await pool.query(
+    `select importance, description, event_type, metadata_json
+     from player_journal_entries
+     order by occurred_at desc, id desc`,
+  )
+  return queryResult.rows
 }
 
 describe('mining routes', () => {
@@ -124,6 +136,253 @@ describe('mining routes', () => {
         [stationId, 'station.mining.rig.arrived.v1'],
       )
       expect(eventsResult.rows).toHaveLength(1)
+    },
+  )
+
+  it.runIf(process.env.RUN_DB_TESTS === '1')(
+    'writes an info journal entry when the rig arrives and starts mining',
+    async () => {
+      await clearTestDatabase()
+
+      const { app, services } = buildServerWithServices({
+        checkReadiness: async () => {},
+      })
+
+      const startNowResponse = await app.inject({
+        method: 'POST',
+        url: '/v1/session/start-now',
+      })
+      const cookiePair = getSessionCookiePair(startNowResponse.headers['set-cookie'])
+
+      const stationResponse = await app.inject({
+        method: 'GET',
+        url: '/v1/station',
+        headers: { cookie: cookiePair },
+      })
+      const stationX = stationResponse.json().x as number
+      const stationY = stationResponse.json().y as number
+
+      await app.inject({
+        method: 'POST',
+        url: '/v1/station/buildings',
+        headers: { cookie: cookiePair },
+        payload: {
+          building_type: 'mining_docks',
+          slot_index: 1,
+        },
+      })
+
+      const [targetAsteroid] = await db
+        .insert(asteroid)
+        .values({
+          templateId: 'common_chondrite',
+          x: stationX,
+          y: stationY,
+          remainingUnits: 400,
+          seed: 'journal-arrival-seed',
+          isDepleted: false,
+        })
+        .returning({ id: asteroid.id })
+
+      const startOperationResponse = await app.inject({
+        method: 'POST',
+        url: '/v1/mining/operations',
+        headers: { cookie: cookiePair },
+        payload: {
+          asteroid_id: targetAsteroid.id,
+        },
+      })
+      expect(startOperationResponse.statusCode).toBe(200)
+
+      await processDueDomainEventsOnce(services, new Date(Date.now() + 60_000))
+
+      const journalEntries = await selectJournalEntries()
+      expect(journalEntries[0]).toMatchObject({
+        importance: 'info',
+        event_type: 'station.mining.rig.arrived.v1',
+        description: 'Mining rig arrived at destination',
+      })
+    },
+  )
+
+  it.runIf(process.env.RUN_DB_TESTS === '1')(
+    'writes a warning journal entry when the rig arrives on an occupied destination',
+    async () => {
+      await clearTestDatabase()
+
+      const { app, services } = buildServerWithServices({
+        checkReadiness: async () => {},
+      })
+
+      const startNowResponse = await app.inject({
+        method: 'POST',
+        url: '/v1/session/start-now',
+      })
+      const cookiePair = getSessionCookiePair(startNowResponse.headers['set-cookie'])
+
+      const stationResponse = await app.inject({
+        method: 'GET',
+        url: '/v1/station',
+        headers: { cookie: cookiePair },
+      })
+      const stationX = stationResponse.json().x as number
+      const stationY = stationResponse.json().y as number
+
+      const bootstrapResponse = await app.inject({
+        method: 'GET',
+        url: '/v1/session/bootstrap',
+        headers: { cookie: cookiePair },
+      })
+      const currentPlayerId = bootstrapResponse.json().profile.id as string
+      const currentStationId = stationResponse.json().id as string
+
+      await app.inject({
+        method: 'POST',
+        url: '/v1/station/buildings',
+        headers: { cookie: cookiePair },
+        payload: {
+          building_type: 'mining_docks',
+          slot_index: 1,
+        },
+      })
+
+      const [targetAsteroid] = await db
+        .insert(asteroid)
+        .values({
+          templateId: 'common_chondrite',
+          x: stationX + 50,
+          y: stationY + 50,
+          remainingUnits: 400,
+          seed: 'journal-occupied-seed',
+          isDepleted: false,
+        })
+        .returning({ id: asteroid.id })
+
+      const startOperationResponse = await app.inject({
+        method: 'POST',
+        url: '/v1/mining/operations',
+        headers: { cookie: cookiePair },
+        payload: {
+          asteroid_id: targetAsteroid.id,
+        },
+      })
+      expect(startOperationResponse.statusCode).toBe(200)
+
+      await pool.query(
+        `insert into players (id, display_name, auth_type) values ($1, $2, 'guest')`,
+        ['00000000-0000-0000-0000-000000009001', 'Occupying Player'],
+      )
+      await pool.query(`insert into stations (id, player_id, x, y) values ($1, $2, $3, $4)`, [
+        '00000000-0000-0000-0000-000000009101',
+        '00000000-0000-0000-0000-000000009001',
+        stationX + 10,
+        stationY + 10,
+      ])
+      await pool.query(
+        `insert into mining_operations (
+           id, station_id, asteroid_id, status, started_at, phase_started_at, cargo_capacity,
+           quantity, quantity_target, created_at, updated_at
+         ) values ($1, $2, $3, 'mining', now(), now(), 50, 0, 50, now(), now())`,
+        [
+          '00000000-0000-0000-0000-000000009201',
+          '00000000-0000-0000-0000-000000009101',
+          targetAsteroid.id,
+        ],
+      )
+
+      await processDueDomainEventsOnce(services, new Date(Date.now() + 600_000))
+
+      const journalEntries = await selectJournalEntries()
+      expect(journalEntries[0]).toMatchObject({
+        importance: 'warning',
+        event_type: 'station.mining.rig.arrived.v1',
+        description: 'Mining rig arrived on an occupied destination!',
+      })
+      expect(journalEntries[0]?.metadata_json).toMatchObject({
+        outcome: 'occupied_destination',
+      })
+
+      const playerEntries = await pool.query(
+        `select count(*)::integer as count
+         from player_journal_entries
+         where player_id = $1 and station_id = $2`,
+        [currentPlayerId, currentStationId],
+      )
+      expect(playerEntries.rows[0]?.count).toBe(1)
+    },
+  )
+
+  it.runIf(process.env.RUN_DB_TESTS === '1')(
+    'writes a warning journal entry when the rig arrives at a depleted destination',
+    async () => {
+      await clearTestDatabase()
+
+      const { app, services } = buildServerWithServices({
+        checkReadiness: async () => {},
+      })
+
+      const startNowResponse = await app.inject({
+        method: 'POST',
+        url: '/v1/session/start-now',
+      })
+      const cookiePair = getSessionCookiePair(startNowResponse.headers['set-cookie'])
+
+      await app.inject({
+        method: 'POST',
+        url: '/v1/station/buildings',
+        headers: { cookie: cookiePair },
+        payload: {
+          building_type: 'mining_docks',
+          slot_index: 1,
+        },
+      })
+
+      const stationResponse = await app.inject({
+        method: 'GET',
+        url: '/v1/station',
+        headers: { cookie: cookiePair },
+      })
+      const stationX = stationResponse.json().x as number
+      const stationY = stationResponse.json().y as number
+
+      const [targetAsteroid] = await db
+        .insert(asteroid)
+        .values({
+          templateId: 'common_chondrite',
+          x: stationX + 100,
+          y: stationY,
+          remainingUnits: 50,
+          seed: 'journal-depleted-seed',
+          isDepleted: false,
+        })
+        .returning({ id: asteroid.id })
+
+      const startOperationResponse = await app.inject({
+        method: 'POST',
+        url: '/v1/mining/operations',
+        headers: { cookie: cookiePair },
+        payload: {
+          asteroid_id: targetAsteroid.id,
+        },
+      })
+      expect(startOperationResponse.statusCode).toBe(200)
+
+      await db
+        .update(asteroid)
+        .set({
+          remainingUnits: 0,
+          isDepleted: true,
+        })
+        .where(eq(asteroid.id, targetAsteroid.id))
+
+      await processDueDomainEventsOnce(services, new Date(Date.now() + 600_000))
+
+      const journalEntries = await selectJournalEntries()
+      expect(journalEntries[0]).toMatchObject({
+        importance: 'warning',
+        event_type: 'station.mining.rig.arrived.v1',
+        description: 'Mining rig arrived at a depleted destination!',
+      })
     },
   )
 
@@ -623,7 +882,18 @@ describe('mining routes', () => {
       const completionProcessingNow = new Date(arrivalProcessingNow.getTime() + 600_000)
       const returnProcessingNow = new Date(completionProcessingNow.getTime() + 60_000)
       await processDueDomainEventsOnce(services, arrivalProcessingNow)
+      let journalEntries = await selectJournalEntries()
+      expect(journalEntries).toHaveLength(1)
+      expect(journalEntries[0]).toMatchObject({
+        importance: 'info',
+        event_type: 'station.mining.rig.arrived.v1',
+        description: 'Mining rig arrived at destination',
+      })
+
       await processDueDomainEventsOnce(services, completionProcessingNow)
+      journalEntries = await selectJournalEntries()
+      expect(journalEntries).toHaveLength(1)
+
       await processDueDomainEventsOnce(services, returnProcessingNow)
 
       const [operationRow] = await db
@@ -665,6 +935,214 @@ describe('mining routes', () => {
 
       const eventsResult = await pool.query('select count(*)::integer as count from domain_events')
       expect(eventsResult.rows[0]?.count).toBe(0)
+
+      const compositionByTemplateId = await loadAsteroidCompositionByTemplateId()
+      const composition = compositionByTemplateId.get('common_chondrite')
+      if (!composition) {
+        throw new Error('missing_common_chondrite_composition')
+      }
+
+      const expectedResourceList = await formatJournalResourceList(
+        allocateResourceBreakdown(operationRow?.quantity ?? 0, composition).entries(),
+      )
+      journalEntries = await selectJournalEntries()
+      expect(journalEntries).toHaveLength(2)
+      expect(journalEntries[0]).toMatchObject({
+        importance: 'important',
+        event_type: 'station.mining.rig.returned.v1',
+        description: `Mining rig returned after depleting the asteroid with ${expectedResourceList}!`,
+      })
+      expect(journalEntries[0]?.metadata_json).toMatchObject({
+        return_reason: 'asteroid_depleted',
+      })
+      expect(journalEntries[1]).toMatchObject({
+        importance: 'info',
+        event_type: 'station.mining.rig.arrived.v1',
+      })
+    },
+  )
+
+  it.runIf(process.env.RUN_DB_TESTS === '1')(
+    'writes a distinct journal entry when the rig returns with full cargo before the asteroid is depleted',
+    async () => {
+      await clearTestDatabase()
+
+      const { app, services } = buildServerWithServices({
+        checkReadiness: async () => {},
+      })
+
+      const startNowResponse = await app.inject({
+        method: 'POST',
+        url: '/v1/session/start-now',
+      })
+      const cookiePair = getSessionCookiePair(startNowResponse.headers['set-cookie'])
+
+      const stationResponse = await app.inject({
+        method: 'GET',
+        url: '/v1/station',
+        headers: { cookie: cookiePair },
+      })
+      const stationId = stationResponse.json().id as string
+      const stationX = stationResponse.json().x as number
+      const stationY = stationResponse.json().y as number
+
+      const buildResponse = await app.inject({
+        method: 'POST',
+        url: '/v1/station/buildings',
+        headers: { cookie: cookiePair },
+        payload: {
+          building_type: 'mining_docks',
+          slot_index: 1,
+        },
+      })
+      expect(buildResponse.statusCode).toBe(200)
+
+      const [targetAsteroid] = await db
+        .insert(asteroid)
+        .values({
+          templateId: 'common_chondrite',
+          x: stationX,
+          y: stationY,
+          remainingUnits: 900,
+          seed: 'mining-full-cargo-seed',
+          isDepleted: false,
+        })
+        .returning({ id: asteroid.id })
+
+      const startOperationResponse = await app.inject({
+        method: 'POST',
+        url: '/v1/mining/operations',
+        headers: { cookie: cookiePair },
+        payload: {
+          asteroid_id: targetAsteroid.id,
+        },
+      })
+      expect(startOperationResponse.statusCode).toBe(200)
+      const operationId = startOperationResponse.json().active_mining_operations[0].id as string
+
+      const arrivalProcessingNow = new Date(Date.now() + 600_000)
+      const completionProcessingNow = new Date(arrivalProcessingNow.getTime() + 600_000)
+      const returnProcessingNow = new Date(completionProcessingNow.getTime() + 60_000)
+      await processDueDomainEventsOnce(services, arrivalProcessingNow)
+      await processDueDomainEventsOnce(services, completionProcessingNow)
+      await processDueDomainEventsOnce(services, returnProcessingNow)
+
+      const [operationRow] = await db
+        .select({
+          quantity: miningOperations.quantity,
+        })
+        .from(miningOperations)
+        .where(and(eq(miningOperations.id, operationId), eq(miningOperations.stationId, stationId)))
+        .limit(1)
+      expect(operationRow?.quantity).toBe(600)
+
+      const [asteroidAfterMining] = await db
+        .select({
+          remainingUnits: asteroid.remainingUnits,
+        })
+        .from(asteroid)
+        .where(eq(asteroid.id, targetAsteroid.id))
+        .limit(1)
+      expect(asteroidAfterMining?.remainingUnits).toBe(300)
+
+      const compositionByTemplateId = await loadAsteroidCompositionByTemplateId()
+      const composition = compositionByTemplateId.get('common_chondrite')
+      if (!composition) {
+        throw new Error('missing_common_chondrite_composition')
+      }
+
+      const expectedResourceList = await formatJournalResourceList(
+        allocateResourceBreakdown(operationRow?.quantity ?? 0, composition).entries(),
+      )
+
+      const journalEntries = await selectJournalEntries()
+      expect(journalEntries).toHaveLength(2)
+      expect(journalEntries[0]).toMatchObject({
+        importance: 'important',
+        event_type: 'station.mining.rig.returned.v1',
+        description: `Mining rig returned with full cargo: ${expectedResourceList}!`,
+      })
+      expect(journalEntries[0]?.metadata_json).toMatchObject({
+        return_reason: 'cargo_full',
+      })
+    },
+  )
+
+  it.runIf(process.env.RUN_DB_TESTS === '1')(
+    'does not write a returned journal entry when the rig comes back empty-handed',
+    async () => {
+      await clearTestDatabase()
+
+      const { app, services } = buildServerWithServices({
+        checkReadiness: async () => {},
+      })
+
+      const startNowResponse = await app.inject({
+        method: 'POST',
+        url: '/v1/session/start-now',
+      })
+      const cookiePair = getSessionCookiePair(startNowResponse.headers['set-cookie'])
+
+      await app.inject({
+        method: 'POST',
+        url: '/v1/station/buildings',
+        headers: { cookie: cookiePair },
+        payload: {
+          building_type: 'mining_docks',
+          slot_index: 1,
+        },
+      })
+
+      const stationResponse = await app.inject({
+        method: 'GET',
+        url: '/v1/station',
+        headers: { cookie: cookiePair },
+      })
+      const stationX = stationResponse.json().x as number
+      const stationY = stationResponse.json().y as number
+
+      const [targetAsteroid] = await db
+        .insert(asteroid)
+        .values({
+          templateId: 'common_chondrite',
+          x: stationX + 120,
+          y: stationY + 40,
+          remainingUnits: 25,
+          seed: 'journal-empty-return-seed',
+          isDepleted: false,
+        })
+        .returning({ id: asteroid.id })
+
+      const startOperationResponse = await app.inject({
+        method: 'POST',
+        url: '/v1/mining/operations',
+        headers: { cookie: cookiePair },
+        payload: {
+          asteroid_id: targetAsteroid.id,
+        },
+      })
+      expect(startOperationResponse.statusCode).toBe(200)
+
+      await db
+        .update(asteroid)
+        .set({
+          remainingUnits: 0,
+          isDepleted: true,
+        })
+        .where(eq(asteroid.id, targetAsteroid.id))
+
+      const arrivalNow = new Date(Date.now() + 600_000)
+      const returnNow = new Date(arrivalNow.getTime() + 600_000)
+      await processDueDomainEventsOnce(services, arrivalNow)
+      await processDueDomainEventsOnce(services, returnNow)
+
+      const journalEntries = await selectJournalEntries()
+      expect(journalEntries).toHaveLength(1)
+      expect(journalEntries[0]).toMatchObject({
+        importance: 'warning',
+        event_type: 'station.mining.rig.arrived.v1',
+        description: 'Mining rig arrived at a depleted destination!',
+      })
     },
   )
 })

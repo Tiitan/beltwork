@@ -64,6 +64,13 @@ async function eventExists(eventId: string): Promise<boolean> {
   return queryResult.rows.length > 0
 }
 
+async function journalEntryCount(): Promise<number> {
+  const queryResult = await pool.query(
+    `select count(*)::integer as count from player_journal_entries`,
+  )
+  return queryResult.rows[0]?.count ?? 0
+}
+
 describe('domain events locks', () => {
   it.runIf(process.env.RUN_DB_TESTS === '1')(
     'acquires lease, blocks competing agent, and allows release by owner only',
@@ -221,6 +228,7 @@ describe('processDueDomainEventById', () => {
         expect(warnSpy).toHaveBeenCalledWith(
           expect.stringContaining('domain_event_unsupported_type'),
         )
+        expect(await journalEntryCount()).toBe(0)
       } finally {
         warnSpy.mockRestore()
       }
@@ -274,6 +282,7 @@ describe('processDueDomainEventById', () => {
         expect(warnSpy).toHaveBeenCalledWith(
           expect.stringContaining('domain_event_invalid_payload'),
         )
+        expect(await journalEntryCount()).toBe(0)
       } finally {
         warnSpy.mockRestore()
       }
@@ -470,6 +479,15 @@ describe('processDueDomainEventById', () => {
         eventId,
       ])
       expect(eventAfterProcess.rows).toHaveLength(0)
+
+      const journalEntriesResult = await pool.query(
+        `select importance, description from player_journal_entries order by occurred_at desc limit 1`,
+      )
+      expect(journalEntriesResult.rows).toHaveLength(1)
+      expect(journalEntriesResult.rows[0]).toMatchObject({
+        importance: 'important',
+        description: 'Storage upgraded to level 2!',
+      })
     },
   )
 })

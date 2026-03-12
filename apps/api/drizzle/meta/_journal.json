@@ -50,6 +50,13 @@
       "when": 1773320000000,
       "tag": "0006_restful_mining_operations",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1773323784070,
+      "tag": "0007_naive_ma_gnuci",
+      "breakpoints": true
     }
   ]
 }

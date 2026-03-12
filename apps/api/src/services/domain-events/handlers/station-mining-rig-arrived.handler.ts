@@ -3,6 +3,7 @@ import { asteroid, domainEvents, miningOperations, stations } from '../../../db/
 import { loadMiningDockRigConfig, miningDurationMs } from '../../mining-config.service.js'
 import { STATION_MINING_COMPLETED_EVENT_TYPE } from '../../mining.service.js'
 import type { AppServices } from '../../../types/api.js'
+import { createPlayerJournalEntry } from '../../journal.service.js'
 import {
   parseMiningOperationPhasePayload,
   type MiningOperationPhasePayload,
@@ -92,7 +93,7 @@ export const stationMiningRigArrivedEventHandler: DomainEventHandlerDefinition<
       operationRow.id,
     )
 
-    if (isOccupied || asteroidRow.isDepleted || asteroidRow.remainingUnits <= 0) {
+    if (isOccupied) {
       await transitionToReturningAndEnqueue(input.tx, {
         operationId: operationRow.id,
         stationId: input.stationId,
@@ -101,8 +102,49 @@ export const stationMiningRigArrivedEventHandler: DomainEventHandlerDefinition<
         asteroidX: asteroidRow.x,
         asteroidY: asteroidRow.y,
         now: input.now,
+        returnReason: 'destination_occupied',
       })
       await touchStationSimulationTime(input.tx, input.stationId, input.now)
+      await createPlayerJournalEntry(input.tx, {
+        stationId: input.stationId,
+        eventType: 'station.mining.rig.arrived.v1',
+        importance: 'warning',
+        description: 'Mining rig arrived on an occupied destination!',
+        occurredAt: input.now,
+        metadataJson: {
+          operation_id: operationRow.id,
+          asteroid_id: operationRow.asteroidId,
+          outcome: 'occupied_destination',
+        },
+      })
+      await deleteDomainEvent(input.tx, input.eventId)
+      return
+    }
+
+    if (asteroidRow.isDepleted || asteroidRow.remainingUnits <= 0) {
+      await transitionToReturningAndEnqueue(input.tx, {
+        operationId: operationRow.id,
+        stationId: input.stationId,
+        stationX: stationRow.x,
+        stationY: stationRow.y,
+        asteroidX: asteroidRow.x,
+        asteroidY: asteroidRow.y,
+        now: input.now,
+        returnReason: 'destination_depleted',
+      })
+      await touchStationSimulationTime(input.tx, input.stationId, input.now)
+      await createPlayerJournalEntry(input.tx, {
+        stationId: input.stationId,
+        eventType: 'station.mining.rig.arrived.v1',
+        importance: 'warning',
+        description: 'Mining rig arrived at a depleted destination!',
+        occurredAt: input.now,
+        metadataJson: {
+          operation_id: operationRow.id,
+          asteroid_id: operationRow.asteroidId,
+          outcome: 'depleted_destination',
+        },
+      })
       await deleteDomainEvent(input.tx, input.eventId)
       return
     }
@@ -117,8 +159,21 @@ export const stationMiningRigArrivedEventHandler: DomainEventHandlerDefinition<
         asteroidX: asteroidRow.x,
         asteroidY: asteroidRow.y,
         now: input.now,
+        returnReason: 'destination_depleted',
       })
       await touchStationSimulationTime(input.tx, input.stationId, input.now)
+      await createPlayerJournalEntry(input.tx, {
+        stationId: input.stationId,
+        eventType: 'station.mining.rig.arrived.v1',
+        importance: 'warning',
+        description: 'Mining rig arrived at a depleted destination!',
+        occurredAt: input.now,
+        metadataJson: {
+          operation_id: operationRow.id,
+          asteroid_id: operationRow.asteroidId,
+          outcome: 'depleted_destination',
+        },
+      })
       await deleteDomainEvent(input.tx, input.eventId)
       return
     }
@@ -158,6 +213,18 @@ export const stationMiningRigArrivedEventHandler: DomainEventHandlerDefinition<
     })
 
     await touchStationSimulationTime(input.tx, input.stationId, input.now)
+    await createPlayerJournalEntry(input.tx, {
+      stationId: input.stationId,
+      eventType: 'station.mining.rig.arrived.v1',
+      importance: 'info',
+      description: 'Mining rig arrived at destination',
+      occurredAt: input.now,
+      metadataJson: {
+        operation_id: operationRow.id,
+        asteroid_id: operationRow.asteroidId,
+        outcome: 'started_mining',
+      },
+    })
     await deleteDomainEvent(input.tx, input.eventId)
   },
 }

@@ -8,6 +8,9 @@ const upgradeFinalizePayloadSchema = z.object({
 const miningOperationPhasePayloadSchema = z.object({
   operation_id: z.string().min(1),
   phase_started_at: z.string().min(1),
+  return_reason: z
+    .enum(['cargo_full', 'asteroid_depleted', 'destination_occupied', 'destination_depleted'])
+    .optional(),
 })
 
 export type UpgradeFinalizePayload = {
@@ -18,6 +21,11 @@ export type UpgradeFinalizePayload = {
 export type MiningOperationPhasePayload = {
   operationId: string
   phaseStartedAt: Date
+  returnReason?:
+    | 'cargo_full'
+    | 'asteroid_depleted'
+    | 'destination_occupied'
+    | 'destination_depleted'
 }
 
 function toValidDate(value: string): Date | null {
@@ -58,5 +66,6 @@ export function parseMiningOperationPhasePayload(
   return {
     operationId: parsedPayload.data.operation_id,
     phaseStartedAt,
+    returnReason: parsedPayload.data.return_reason,
   }
 }

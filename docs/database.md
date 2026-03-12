@@ -21,6 +21,12 @@ Current source of truth: slot position is persisted on each building row via
 - `local`: account with email/password
 - `google`: account linked/authenticated through Google
 
+### `journal_importance`
+
+- `info`: neutral player-facing event
+- `important`: positive or notable player-facing event
+- `warning`: blocked or problematic player-facing event
+
 ## Tables
 
 ### `players`
@@ -204,7 +210,7 @@ Key constraints:
 
 ### `domain_events`
 
-Purpose: append-only due/processed domain events.
+Purpose: transient internal scheduler records for deferred domain-event processing.
 
 Key constraints:
 
@@ -212,6 +218,34 @@ Key constraints:
 - Foreign key: `station_id -> stations.id` (nullable)
 - Index: `(due_at, processed_at)`
 - Unique idempotency key
+
+Current runtime behavior:
+
+- queued rows are inserted for future execution
+- rows are deleted after successful handling
+- this table is not the player-facing journal history
+
+### `player_journal_entries`
+
+Purpose: retained player-facing history of completed gameplay events.
+
+Key constraints:
+
+- Primary key: `id`
+- Foreign keys: `player_id -> players.id`, `station_id -> stations.id`
+- Indexes: `(player_id, occurred_at)`, `(station_id, occurred_at)`, `event_type`
+
+| Column          | Type                 | Description                                           |
+| --------------- | -------------------- | ----------------------------------------------------- |
+| `id`            | `uuid`               | Journal entry id.                                     |
+| `player_id`     | `uuid`               | Owning player id.                                     |
+| `station_id`    | `uuid \| null`       | Related station id when applicable.                   |
+| `event_type`    | `text`               | Stable event family key for future filtering.         |
+| `importance`    | `journal_importance` | `info`, `important`, or `warning`.                    |
+| `description`   | `text`               | Player-facing event text shown in the journal.        |
+| `occurred_at`   | `timestamptz`        | Gameplay completion time used for newest-first order. |
+| `metadata_json` | `jsonb`              | Structured event context reserved for future filters. |
+| `created_at`    | `timestamptz`        | Insert timestamp.                                     |
 
 ### `simulation_locks`
 

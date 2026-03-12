@@ -17,3 +17,15 @@
     linear-gradient(170deg, rgba(4, 10, 19, 0.97), rgba(20, 39, 48, 0.7)),
     url('/assets/page/bg_station.png');
 }
+
+@keyframes banner-pop-in {
+  from {
+    opacity: 0;
+    transform: translate3d(0, -10px, 0) scale(0.97);
+  }
+
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}

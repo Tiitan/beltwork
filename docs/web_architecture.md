@@ -8,8 +8,9 @@ It focuses on responsibilities, data flow, and how React concepts are applied in
 The web app is a React SPA responsible for:
 
 - Authentication UX (`/login`, Start now, Google sign-in)
-- Authenticated gameplay shell (`/station`, `/map`, `/account`)
+- Authenticated gameplay shell (`/station`, `/journal`, `/map`, `/account`)
 - Station canvas interactions (slot selection, build, upgrade)
+- Journal history rendering
 - Map canvas interactions (pan/zoom/select/scan)
 - Rendering API state and sending player actions back to API
 
@@ -48,7 +49,7 @@ App root:
 
 This app uses three practical levels of components:
 
-- Route/page components: `LoginPage`, `StationPage`, `MapPage`, `AccountPage`
+- Route/page components: `LoginPage`, `StationPage`, `JournalPage`, `MapPage`, `AccountPage`
 - Layout components: `StationLayout`
 - Feature/presentational components: map panels, station panels, building panel variants
 
@@ -66,6 +67,7 @@ The app uses React Context for app-wide state sharing:
 
 - `AuthSessionProvider` wraps the whole app
 - `StationProvider` wraps authenticated routes
+- `JournalNotificationsProvider` wraps the authenticated shell and reacts to refresh-driven journal updates
 
 This avoids prop drilling and keeps pages focused on UI behavior.
 
@@ -89,13 +91,17 @@ graph TD
     E --> F{hasSession}
     F -->|false| G[/login -> LoginPage/]
     F -->|true| H[StationProvider]
-    H --> I[StationLayout]
-    I --> J["/station/* -> StationPage"]
-    I --> K["/map -> MapPage"]
-    I --> L["/account -> AccountPage"]
+    H --> I[JournalNotificationsProvider]
+    I --> J[StationLayout]
+    J --> K["/station/* -> StationPage"]
+    J --> L["/journal -> JournalPage"]
+    J --> M["/map -> MapPage"]
+    J --> N["/account -> AccountPage"]
 ```
 
-Key point: `StationProvider` state is shared across station/map/account pages.
+Key point: `StationProvider` state is shared across station/map/account pages, while `/journal`
+uses the same authenticated shell but fetches its own page-local history data. Shell-wide
+completion banners are driven separately by journal polling after successful refreshes.
 
 ## 6. Route Architecture and Responsibilities
 
@@ -117,13 +123,22 @@ Responsibilities:
 
 This intentionally rejects old nested sections like dashboard/factories/buildings.
 
-### 6.3 Authenticated Shell
+### 6.3 Journal Route Surface
+
+`/journal` renders a dedicated `JournalPage` under the authenticated shell.
+
+- Fetches `GET /v1/journal/events`
+- Renders completed player-facing events with page-local filters and cursor pagination
+- Uses page-local loading, empty, and error states
+
+### 6.4 Authenticated Shell
 
 `StationLayout` provides:
 
-- Sidebar navigation: `/station`, `/map`, `/account`
+- Sidebar navigation: `/station`, `/journal`, `/map`, `/account`
 - Commander/account summary
-- Refresh station button (timestamp refresh)
+- Real refresh button that reloads station + map snapshots and updates the shell timestamp on success
+- Shell-wide completion banner overlay for newly detected journal events
 - Disconnect behavior and route return to `/login`
 
 ## 7. Feature Modules (Role of `features/`)
@@ -187,13 +202,15 @@ Owns:
 - Station data: `inventory`, `buildings`, `buildableBuildings`, `playerStation`
 - Map data: `mapSnapshot`, `mapEntities`, selection refs
 - Loading/error state for map/station actions
-- Actions: `refreshMapSnapshot`, `refreshStationSnapshot`, `buildBuildingInSlot`, `upgradeBuildingById`, selection setters
+- Actions: `refreshMapSnapshot`, `refreshStationSnapshot`, `refreshShellData`, `buildBuildingInSlot`, `upgradeBuildingById`, selection setters
+- Refresh signal: `snapshotRefreshRevision` for shell-level observers
 
 Important behavior:
 
 - Loads station snapshot and map snapshot on mount
 - Applies snapshot through `applyStationSnapshot`
 - Reconciles selected map element when map refresh changes entity set
+- Increments a shared refresh revision after successful shell refreshes, due-event refreshes, and successful station actions
 
 ## 9. Page Layer (Role of `pages/`)
 
@@ -236,13 +253,24 @@ Core responsibilities:
 - Build and upgrade action dispatch
 - Right-side contextual panel rendering via station renderer registry
 
+## 9.5 `JournalPage`
+
+Journal history screen responsibilities:
+
+- Fetches completed journal events from the API
+- Renders newest-first event rows with localized timestamps
+- Maps backend importance (`info`, `important`, `warning`) to UI colors
+- Shows loading, empty, and error states
+- Owns history filters and pagination UI only; shell banners are separate
+
 ## 10. Components Layer (Role of `components/`)
 
 `components/station/StationLayout.tsx` is the shared authenticated shell component:
 
 - Mobile + desktop sidebar behavior
 - Shared nav and profile summary
-- Shared disconnect and refresh controls
+- Shared disconnect and real refresh controls
+- Shared completion banner overlay that remains visible while navigating authenticated pages
 
 ## 11. Renderer + Panel Pattern
 
@@ -345,7 +373,7 @@ Defined in `pages/station/render/stationScene.ts`:
 - Gameplay read-model ownership: `useStationState` (wrapped by `StationProvider`)
 - Route ownership: `App.tsx`
 - Shell/layout ownership: `StationLayout`
-- Screen interaction ownership: page components (`MapPage`, `StationHomePage`)
+- Screen interaction ownership: page components (`MapPage`, `StationHomePage`, `JournalPage`)
 - API transport/parsing ownership: `features/*/api.ts`
 
 This separation keeps domain logic centralized while pages remain focused on interaction and rendering.

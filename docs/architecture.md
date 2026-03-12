@@ -29,9 +29,10 @@ Current API process also hosts in-memory factory job scaffolding used by factory
 
 ### 3.1 Authenticated Shell and Routes
 
-Authenticated routes are mounted under one shell (`StationLayout` + `StationProvider`):
+Authenticated routes are mounted under one shell (`StationLayout` + `StationProvider` + journal notification provider):
 
 - `/station`: station canvas home
+- `/journal`: player journal history
 - `/map`: map canvas
 - `/account`: account settings
 
@@ -93,13 +94,25 @@ Map is a full-screen canvas with entity renderers and right-side panel:
 - Entities: stations and asteroids.
 - Asteroids support scan action via API (`POST /v1/asteroids/:id/scan`).
 
-### 3.4 Frontend State Model
+### 3.4 Journal Page
+
+Journal is a dedicated authenticated page that:
+
+- fetches `GET /v1/journal/events`
+- renders completed player-facing events with filters and cursor pagination
+- formats timestamps in the player browser locale/timezone
+- derives white/blue/orange UI styling from backend importance values
+- stays separate from shell-wide completion banners
+
+### 3.5 Frontend State Model
 
 State is managed through `StationProvider` / `useStationState`:
 
 - Station snapshot (`/v1/station`) drives station inventory/buildings/buildables.
 - Map snapshot (`/v1/map`) drives map entities and bounds.
 - Mutations (`build`, `upgrade`, `scan`) refresh local state from API responses.
+- Successful shell refreshes, due-event refreshes, and station actions increment a shared refresh revision.
+- Shell-wide completion banners poll the journal endpoint after those refreshes and show new journal entries for 8 seconds.
 
 No `react-query` usage in the current implementation.
 
@@ -124,6 +137,10 @@ Station:
 - `POST /v1/station/buildings`
 - `PATCH /v1/station/buildings/:buildingId`
 
+Journal:
+
+- `GET /v1/journal/events`
+
 Map:
 
 - `GET /v1/map`
@@ -140,6 +157,12 @@ Health:
 
 - `GET /live`
 - `GET /ready`
+
+Current journal route behavior:
+
+- optional filter query params: `date_range`, `importance`, `event_type`
+- optional cursor query param: `cursor`
+- newest-first paged response with `next_cursor`
 
 ### 4.2 Station Snapshot Contract
 
@@ -191,8 +214,14 @@ Current ownership summary:
 - Building placement: `station_buildings.slot_index`
 - Building identity/state: `station_buildings`
 - Inventory: `station_inventory`
+- Player journal history: `player_journal_entries`
 - Map asteroids: `asteroid`
 - Per-player scanned asteroid snapshots: `scanned_asteroids`
+
+Event processing ownership:
+
+- `domain_events`: transient internal scheduler records for deferred execution
+- `player_journal_entries`: retained player-facing history of completed events
 
 Migration path used in this branch:
 

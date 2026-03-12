@@ -23,6 +23,36 @@ export type BuildableBuildingRow = {
   name: string
 }
 
+export type JournalImportance = 'info' | 'important' | 'warning'
+export type JournalDateRange = 'all' | '24h' | '7d' | '30d'
+export type JournalEventType =
+  | 'station.building.upgrade.finalize.v1'
+  | 'station.mining.rig.arrived.v1'
+  | 'station.mining.rig.returned.v1'
+
+export type JournalEventRow = {
+  id: string
+  eventType: string
+  importance: JournalImportance
+  description: string
+  occurredAt: string
+}
+
+export type JournalFilters = {
+  dateRange: JournalDateRange
+  importance: JournalImportance[]
+  eventTypes: JournalEventType[]
+}
+
+export type JournalEventsPage = {
+  events: JournalEventRow[]
+  nextCursor: string | null
+}
+
+export type JournalBannerNotification = JournalEventRow & {
+  expiresAt: number
+}
+
 export type MiningOperationStatus = 'flying_to_destination' | 'mining' | 'returning'
 
 export type ActiveMiningOperationRow = {

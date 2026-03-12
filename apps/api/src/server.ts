@@ -10,6 +10,7 @@ import { registerStationRoutes } from './routes/station.routes.js'
 import { registerFactoryRoutes } from './routes/factory.routes.js'
 import { registerMapRoutes } from './routes/map.routes.js'
 import { registerMiningRoutes } from './routes/mining.routes.js'
+import { registerJournalRoutes } from './routes/journal.routes.js'
 import { buildGameDomainEventHandlerRegistry } from './services/domain-events/game-domain-event-registry.js'
 
 /**
@@ -45,6 +46,7 @@ export function buildServerWithServices(options: BuildServerOptions = {}) {
   registerHealthRoutes(app, services)
   registerAuthRoutes(app, services)
   registerStationRoutes(app, services)
+  registerJournalRoutes(app, services)
   registerMapRoutes(app, services)
   registerMiningRoutes(app, services)
   registerFactoryRoutes(app, services)

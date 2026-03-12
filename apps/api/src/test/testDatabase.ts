@@ -6,6 +6,7 @@ const testTables = [
   'player_identities',
   'sessions',
   'simulation_locks',
+  'player_journal_entries',
   'domain_events',
   'factory_jobs',
   'mining_operations',

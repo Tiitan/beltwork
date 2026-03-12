@@ -59,6 +59,11 @@ export async function transitionToReturningAndEnqueue(
     asteroidX: number
     asteroidY: number
     now: Date
+    returnReason?:
+      | 'cargo_full'
+      | 'asteroid_depleted'
+      | 'destination_occupied'
+      | 'destination_depleted'
   },
 ): Promise<void> {
   const rigConfig = await loadMiningDockRigConfig()
@@ -87,6 +92,7 @@ export async function transitionToReturningAndEnqueue(
     payloadJson: {
       operation_id: input.operationId,
       phase_started_at: returnPhaseStartedAtIso,
+      ...(input.returnReason ? { return_reason: input.returnReason } : {}),
     },
     idempotencyKey: miningEventIdempotencyKey(
       STATION_MINING_RIG_RETURNED_EVENT_TYPE,

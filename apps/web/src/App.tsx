@@ -3,9 +3,11 @@ import { Navigate, Outlet, Route, Routes, useLocation, useNavigate } from 'react
 import './App.css'
 import { StationLayout } from './components/station/StationLayout'
 import { AuthSessionProvider } from './features/auth/AuthSessionProvider'
+import { JournalNotificationsProvider } from './features/journal/JournalNotificationsProvider'
 import { useAuthSession } from './features/auth/useAuthSession'
 import { StationProvider } from './features/station/StationProvider'
 import { AccountPage } from './pages/AccountPage'
+import { JournalPage } from './pages/JournalPage'
 import { LoginPage } from './pages/LoginPage'
 import { MapPage } from './pages/MapPage'
 import { StationPage } from './pages/StationPage'
@@ -23,6 +25,7 @@ function AppRoutes() {
 
   const screen =
     location.pathname.startsWith('/station') ||
+    location.pathname.startsWith('/journal') ||
     location.pathname.startsWith('/map') ||
     location.pathname.startsWith('/account')
       ? 'station'
@@ -88,14 +91,17 @@ function AppRoutes() {
                 <Navigate replace to="/login" />
               ) : (
                 <StationProvider>
-                  <StationLayout>
-                    <Outlet />
-                  </StationLayout>
+                  <JournalNotificationsProvider>
+                    <StationLayout>
+                      <Outlet />
+                    </StationLayout>
+                  </JournalNotificationsProvider>
                 </StationProvider>
               )
             }
           >
             <Route path="/station/*" element={<StationPage />} />
+            <Route path="/journal" element={<JournalPage />} />
             <Route path="/map" element={<MapPage />} />
             <Route path="/account" element={<AccountPage />} />
           </Route>
